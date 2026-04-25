@@ -1,0 +1,12 @@
+.claude-config
+
+# Claudeman runtime binaries (injected, not project-authored)
+.claude/claudeman/bin/
+
+# Generated artifacts
+out/
+work/
+
+# Voice models (78 MB+, fetch separately)
+voices/*.onnx
+voices/*.onnx.json

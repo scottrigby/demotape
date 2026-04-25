@@ -1,0 +1,24 @@
+{
+  "name": "demo-recorder",
+  "description": "Open-source product demo recorder: Playwright + Piper TTS + VHS + FFmpeg",
+  "features": {
+    "ghcr.io/devcontainers/features/python:1": { "version": "latest" },
+    "ghcr.io/schlich/devcontainer-features/playwright:0": { "browsers": "chromium" },
+    "ghcr.io/devcontainers-extra/features/ffmpeg-apt-get:1": {}
+  },
+  "extraDomains": [
+    "pypi.org",
+    "files.pythonhosted.org",
+    "playwright.azureedge.net",
+    "cdn.playwright.dev",
+    "github.com",
+    "objects.githubusercontent.com",
+    "raw.githubusercontent.com",
+    "huggingface.co",
+    "cdn-lfs.huggingface.co"
+  ],
+  "cacheEnv": {
+    "PIP_CACHE_DIR": "pip",
+    "PLAYWRIGHT_BROWSERS_PATH": "playwright"
+  }
+}
