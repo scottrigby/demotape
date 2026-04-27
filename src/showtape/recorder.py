@@ -109,6 +109,13 @@ def apply_pronunciations(text: str, pronunciations: dict | None) -> str:
     return pattern.sub(lambda m: lookup[m.group(0).lower()], text)
 
 
+# Trailing silence appended to every synth WAV. Piper writes audio right up
+# to the last sample; without padding, concat boundaries occasionally clip
+# the tail of the last syllable, especially on plosives. 200 ms is enough
+# to be safe and not enough to be perceptible as a gap.
+NARRATION_TAIL_PAD_MS = 200
+
+
 def synth(voice, text, speaker_id, out_path):
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with wave.open(str(out_path), "wb") as wav:
@@ -117,6 +124,10 @@ def synth(voice, text, speaker_id, out_path):
         wav.setframerate(voice.config.sample_rate)
         for chunk in voice.synthesize(text):
             wav.writeframes(chunk.audio_int16_bytes)
+        # Append silence so the audio's last non-zero sample isn't right
+        # at the file boundary.
+        silence_samples = int(voice.config.sample_rate * NARRATION_TAIL_PAD_MS / 1000)
+        wav.writeframes(b"\x00\x00" * silence_samples)
 
 
 def wav_duration_ms(path):

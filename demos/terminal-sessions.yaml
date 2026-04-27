@@ -4,22 +4,26 @@ voice: 0
 
 # Demonstrates terminal `session:` continuity across non-contiguous steps.
 #
-# Two independent shells (`shell-A` and `shell-B`) run in parallel. Each
-# step keeps the same 3-pane layout (3-left: browser big-left, two small
-# terminals stacked right) so both sessions stay at the same dimensions
-# in every appearance — that's a hard requirement: re-rendering the same
-# session at different widths would re-wrap scrollback differently and
-# break the illusion of continuity. Mix layouts only at the cost of
-# losing visible scrollback.
+# Two independent shells (`shell-A` and `shell-B`) stay visible in their
+# panes for the entire demo. To keep a session's scrollback on screen
+# during a step where it's not running new commands, declare `session: <id>`
+# on the pane in that step too — with empty `actions: []`. The session
+# tape covers every step from first to last appearance, so an "idle"
+# slice still shows the accumulated scrollback.
 #
-# Sessions appear and disappear from the visible panes via "decoy" non-
-# session terminals: any step that drops a session uses a fresh shell
-# in that pane slot. The session stays alive between visits, accumulating
-# scrollback you can verify when it returns.
+# Constraint: all occurrences of one session must use the same pane size
+# (different widths re-wrap scrollback differently). The renderer
+# validates and errors loudly if you mix layouts.
+
+# Piper would otherwise render "shell-A" as one word ("shella"); the
+# pronunciations map respells it as two.
+pronunciations:
+  shell-A: "shell A"
+  shell-B: "shell B"
 
 steps:
   - id: shell-A-first
-    narration: "Shell A starts up and runs a command."
+    narration: "Shell A starts up and runs its first command. Shell B is just sitting there."
     layout: 3-left
     panes:
       - type: browser
@@ -31,12 +35,12 @@ steps:
           - type: "echo 'shell-A: command 1'"
           - enter: true
           - sleep_ms: 1500
-      - type: terminal     # decoy — nothing yet from shell-B; just a fresh shell
-        actions:
-          - sleep_ms: 2000
+      - type: terminal
+        session: shell-B   # idle, but kept alive so its slot stays consistent
+        actions: []
 
   - id: shell-A-continues
-    narration: "Shell A continues with another command. The first one's still on screen."
+    narration: "Shell A continues. Both commands stay on screen."
     layout: 3-left
     panes:
       - type: browser
@@ -48,43 +52,44 @@ steps:
           - type: "echo 'shell-A: command 2'"
           - enter: true
           - sleep_ms: 1500
-      - type: terminal     # decoy again
-        actions:
-          - sleep_ms: 2000
+      - type: terminal
+        session: shell-B
+        actions: []
 
-  - id: shell-B-starts
-    narration: "Now I'll switch focus to shell B, which has its own independent state."
+  - id: shell-B-first
+    narration: "Now shell B runs a command. Shell A keeps its history visible the whole time."
     layout: 3-left
     panes:
       - type: browser
         actions:
           - goto: "https://github.com/charmbracelet/vhs"
-      - type: terminal     # decoy in shell-A's slot — shell-A is paused, not visible
-        actions:
-          - sleep_ms: 2000
+      - type: terminal
+        session: shell-A   # idle this step, but its prior scrollback stays on screen
+        actions: []
       - type: terminal
         session: shell-B
         actions:
-          - type: "echo 'shell-B: command 1, totally separate'"
+          - type: "echo 'shell-B: command 1'"
           - enter: true
           - sleep_ms: 1500
 
-  - id: both-back
-    narration: "And here are both shells side by side. A still has its history. B still has its."
+  - id: both-run
+    narration: "And both shells run new commands together. Each one remembers everything it ran before."
     layout: 3-left
+    pause_ms: 500
     panes:
       - type: browser
         actions:
           - goto: "https://github.com/scottrigby/showtape"
       - type: terminal
-        session: shell-A   # returns! commands 1 and 2 should still be visible
+        session: shell-A
         actions:
-          - type: "echo 'shell-A: command 3 — survived being absent'"
+          - type: "echo 'shell-A: command 3 — three commands now'"
           - enter: true
           - sleep_ms: 1500
       - type: terminal
-        session: shell-B   # continues from shell-B-starts
+        session: shell-B
         actions:
-          - type: "echo 'shell-B: command 2'"
+          - type: "echo 'shell-B: command 2 — two commands now'"
           - enter: true
           - sleep_ms: 1500
