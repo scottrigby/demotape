@@ -22,3 +22,7 @@ voices/*.onnx.json
 
 # Throwaway test harness for consuming the published feature.
 _test-consumer/
+
+# macOS metadata; build logs (host-side artifacts that shouldn't ship)
+.DS_Store
+dc-up.log

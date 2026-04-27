@@ -28,7 +28,13 @@ PYTHON_BIN="/usr/local/python/current/bin"
 SHARE_DIR="/usr/local/share/showtape"
 VOICES_DIR="${SHARE_DIR}/voices"
 
-mkdir -p "$SHARE_DIR" "$VOICES_DIR"
+# Install Playwright browsers to a system-wide path so root (build time) and
+# the unprivileged user (run time) read from the same location. The matching
+# `containerEnv.PLAYWRIGHT_BROWSERS_PATH` in devcontainer-feature.json sets
+# this variable for the running container too.
+export PLAYWRIGHT_BROWSERS_PATH="/usr/local/share/playwright"
+
+mkdir -p "$SHARE_DIR" "$VOICES_DIR" "$PLAYWRIGHT_BROWSERS_PATH"
 
 # ---- VHS (terminal pane renderer) ----
 if ! command -v vhs >/dev/null 2>&1; then
@@ -57,19 +63,18 @@ pip install --no-cache-dir "git+https://github.com/scottrigby/showtape@${VERSION
 
 # ---- Playwright Chromium ----
 if [ "${INSTALLCHROMIUM}" = "true" ]; then
-  echo "showtape: installing Playwright Chromium"
+  echo "showtape: installing Playwright Chromium → ${PLAYWRIGHT_BROWSERS_PATH}"
   # We're root here, so --with-deps would re-install apt deps already covered
   # by the apt-packages feature dependency. Skip --with-deps; trust the deps.
   playwright install chromium
 
+  # Make sure non-root users can read+execute the browser tree.
+  chmod -R a+rX "$PLAYWRIGHT_BROWSERS_PATH"
+
   # VHS uses go-rod, which searches PATH for "chromium". Symlink Playwright's
   # Chromium so VHS can find it without a duplicate download.
-  PW_CHROME="$(ls -d /root/.cache/ms-playwright/chromium-*/chrome-linux/chrome 2>/dev/null \
+  PW_CHROME="$(ls -d "${PLAYWRIGHT_BROWSERS_PATH}"/chromium-*/chrome-linux/chrome 2>/dev/null \
     | tail -1 || true)"
-  if [ -z "$PW_CHROME" ]; then
-    PW_CHROME="$(ls -d "${PLAYWRIGHT_BROWSERS_PATH:-}"/chromium-*/chrome-linux/chrome 2>/dev/null \
-      | tail -1 || true)"
-  fi
   if [ -n "$PW_CHROME" ] && [ -x "$PW_CHROME" ]; then
     ln -sf "$PW_CHROME" "${PYTHON_BIN}/chromium"
     echo "showtape: symlinked ${PW_CHROME} → ${PYTHON_BIN}/chromium (for VHS/go-rod)"
