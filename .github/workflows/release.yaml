@@ -54,6 +54,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # The OCI publish writes via `docker login` creds (set above), but the
+      # action's post-publish step calls the GitHub REST API (octokit) for
+      # repo-tagging / metadata work, and reads its token from the env, NOT
+      # from the workflow's `permissions:` block. Without GITHUB_TOKEN in env
+      # the post-publish step throws "Parameter token or opts.auth is required"
+      # *after* the OCI push has already succeeded.
       - name: Publish devcontainer feature → ghcr.io
         if: steps.ver.outputs.release == 'true'
         uses: devcontainers/action@v1
@@ -61,6 +67,8 @@ jobs:
           publish-features: "true"
           base-path-to-features: "./feature"
           features-namespace: scottrigby/showtape
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Tag is the LAST step — only created if the publish actually succeeded.
       # That way the v<version> tag is unambiguous: "this version is on ghcr.io".
