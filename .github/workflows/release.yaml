@@ -42,14 +42,6 @@ jobs:
             echo "release=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Tag the commit
-        if: steps.ver.outputs.release == 'true'
-        run: |
-          git config user.name  'github-actions[bot]'
-          git config user.email 'github-actions[bot]@users.noreply.github.com'
-          git tag "v${{ steps.ver.outputs.version }}"
-          git push origin "v${{ steps.ver.outputs.version }}"
-
       # devcontainers/action runs `devcontainer features publish`, which expects
       # credentials in the runner's docker config. It does NOT auto-login to
       # ghcr.io itself — without this step the publish hits ghcr.io with no
@@ -69,3 +61,15 @@ jobs:
           publish-features: "true"
           base-path-to-features: "./feature"
           features-namespace: scottrigby/showtape
+
+      # Tag is the LAST step — only created if the publish actually succeeded.
+      # That way the v<version> tag is unambiguous: "this version is on ghcr.io".
+      # Steps after a failure are skipped by default, so a publish failure
+      # leaves no tag to short-circuit the retry.
+      - name: Tag the released commit
+        if: steps.ver.outputs.release == 'true'
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git tag "v${{ steps.ver.outputs.version }}"
+          git push origin "v${{ steps.ver.outputs.version }}"
