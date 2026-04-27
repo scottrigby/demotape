@@ -70,7 +70,7 @@ def vhs_escape(s: str) -> str:
 def compile_tape(actions: list, total_ms: int, output_mp4: Path,
                  pane_w: int, pane_h: int) -> str:
     lines = [
-        f"Output {output_mp4}",
+        f'Output "{output_mp4}"',
         f"Set Width {pane_w}",
         f"Set Height {pane_h}",
         "Set FontSize 28",
@@ -106,15 +106,21 @@ def record_terminal(actions: list, total_ms: int, work_dir: Path,
 
 
 def composite_step(browser_webm: Path, terminal_mp4: Path, audio_wav: Path,
-                   output_mp4: Path, pane_w: int, pane_h: int) -> None:
+                   output_mp4: Path, total_ms: int,
+                   pane_w: int, pane_h: int) -> None:
     output_mp4.parent.mkdir(parents=True, exist_ok=True)
+    total_s = total_ms / 1000
+    # apad pads the narration with silence to match video; bare `apad` with
+    # no duration is infinite, and -shortest can't reliably end an hstack
+    # filter graph — so we set both an explicit apad duration *and* a hard
+    # -t cap to guarantee the output is exactly total_ms long.
     filter_complex = (
         f"[0:v]scale={pane_w}:{pane_h}:force_original_aspect_ratio=decrease,"
         f"pad={pane_w}:{pane_h}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={FPS}[L];"
         f"[1:v]scale={pane_w}:{pane_h}:force_original_aspect_ratio=decrease,"
         f"pad={pane_w}:{pane_h}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={FPS}[R];"
         f"[L][R]hstack=inputs=2[v];"
-        f"[2:a]apad[a]"
+        f"[2:a]apad=whole_dur={total_s}[a]"
     )
     cmd = [
         "ffmpeg", "-y",
@@ -123,7 +129,7 @@ def composite_step(browser_webm: Path, terminal_mp4: Path, audio_wav: Path,
         "-i", str(audio_wav),
         "-filter_complex", filter_complex,
         "-map", "[v]", "-map", "[a]",
-        "-shortest",
+        "-t", f"{total_s}",
         "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
         "-pix_fmt", "yuv420p", "-r", str(FPS),
         "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
@@ -193,7 +199,8 @@ def main() -> None:
         print(f"  terminal → {t_mp4.name}")
 
         clip_path = work / "clips" / f"{i}.mp4"
-        composite_step(b_webm, t_mp4, audio_path, clip_path, pane_w, pane_h)
+        composite_step(b_webm, t_mp4, audio_path, clip_path, total_ms,
+                       pane_w, pane_h)
         clip_paths.append(clip_path)
         print(f"  composite → {clip_path.name}")
 

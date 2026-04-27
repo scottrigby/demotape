@@ -52,6 +52,21 @@ if ! command -v ttyd >/dev/null 2>&1; then
   chmod +x "$BIN_DIR/ttyd"
 fi
 
+# VHS uses go-rod for headless browser rendering of the terminal. go-rod
+# searches PATH for "chromium" / "google-chrome" / etc., and otherwise tries
+# to download its own Chromium from URLs that have gone stale (and that the
+# firewall doesn't whitelist anyway). Symlink Playwright's already-downloaded
+# Chromium onto PATH so go-rod finds it via lookup.
+if ! command -v chromium >/dev/null 2>&1; then
+  PW_CHROME="$(ls -d "${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"/chromium-*/chrome-linux/chrome 2>/dev/null | tail -1)"
+  if [ -n "$PW_CHROME" ] && [ -x "$PW_CHROME" ]; then
+    echo "==> Symlinking $PW_CHROME → $BIN_DIR/chromium (for VHS/go-rod)"
+    ln -sf "$PW_CHROME" "$BIN_DIR/chromium"
+  else
+    echo "WARN: no Playwright Chromium found; VHS will fail at runtime" >&2
+  fi
+fi
+
 echo "==> Versions"
 vhs --version
 ttyd --version | head -1
