@@ -36,31 +36,28 @@ export PLAYWRIGHT_BROWSERS_PATH="/usr/local/share/playwright"
 
 mkdir -p "$SHARE_DIR" "$VOICES_DIR" "$PLAYWRIGHT_BROWSERS_PATH"
 
+# Pinned tool versions. Both VHS and ttyd are slowly-released, stable
+# tools — pinning eliminates dependence on api.github.com, which gets
+# rate-limited for unauthenticated requests (60/hour per IP). Bumping
+# these in source is the same workflow as bumping any other dep, and
+# every consumer build hits a deterministic URL with no API call.
+VHS_VERSION="0.11.0"
+TTYD_VERSION="1.7.7"
+
 # ---- VHS (terminal pane renderer) ----
 if ! command -v vhs >/dev/null 2>&1; then
-  VHS_TAG="$(curl -fsSL https://api.github.com/repos/charmbracelet/vhs/releases/latest \
-    | python3 -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])')"
-  VHS_VER="${VHS_TAG#v}"
-  echo "showtape: installing VHS ${VHS_TAG} (${VHS_ARCH}) → ${PYTHON_BIN}/vhs"
+  echo "showtape: installing VHS v${VHS_VERSION} (${VHS_ARCH}) → ${PYTHON_BIN}/vhs"
   TMP="$(mktemp -d)"
-  curl -fsSL "https://github.com/charmbracelet/vhs/releases/download/${VHS_TAG}/vhs_${VHS_VER}_Linux_${VHS_ARCH}.tar.gz" \
+  curl -fsSL "https://github.com/charmbracelet/vhs/releases/download/v${VHS_VERSION}/vhs_${VHS_VERSION}_Linux_${VHS_ARCH}.tar.gz" \
     | tar xz -C "$TMP"
   install -m0755 "$TMP"/vhs*/vhs "${PYTHON_BIN}/vhs"
   rm -rf "$TMP"
 fi
 
 # ---- ttyd (used internally by VHS) ----
-# tsl0922/ttyd publishes releases without marking any as "latest", so the
-# /releases/latest/download/... shortcut returns 404. Resolve the most
-# recent non-prerelease tag from the API, then build the explicit URL.
 if ! command -v ttyd >/dev/null 2>&1; then
-  TTYD_TAG="$(curl -fsSL https://api.github.com/repos/tsl0922/ttyd/releases \
-    | python3 -c 'import json,sys
-for r in json.load(sys.stdin):
-    if not r["prerelease"] and not r["draft"]:
-        print(r["tag_name"]); break')"
-  echo "showtape: installing ttyd ${TTYD_TAG} (${TTYD_ARCH}) → ${PYTHON_BIN}/ttyd"
-  curl -fsSL "https://github.com/tsl0922/ttyd/releases/download/${TTYD_TAG}/ttyd.${TTYD_ARCH}" \
+  echo "showtape: installing ttyd ${TTYD_VERSION} (${TTYD_ARCH}) → ${PYTHON_BIN}/ttyd"
+  curl -fsSL "https://github.com/tsl0922/ttyd/releases/download/${TTYD_VERSION}/ttyd.${TTYD_ARCH}" \
     -o "${PYTHON_BIN}/ttyd"
   chmod +x "${PYTHON_BIN}/ttyd"
 fi
