@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
-# Bump showtape's version in every place that pins it. Designed to keep the
-# tracked artifacts (pyproject.toml + feature manifest, the two CI compares)
-# in lockstep with documentation and the dev/test-consumer devcontainers.
+# Bump showtape's version in every place that pins it. Keeps the
+# tracked artifacts (pyproject.toml + feature manifest, the two CI
+# compares) in lockstep with documentation and the dev devcontainer.
 #
 # Updates:
-#   - pyproject.toml                                     [project].version
-#   - feature/showtape/devcontainer-feature.json         "version"
-#   - .devcontainer/devcontainer.json                    OCI feature ref tag
-#   - _test-consumer/.devcontainer/devcontainer.json     OCI feature ref tag (if present)
-#   - README.md                                          OCI feature ref tag + `vX.Y.Z` examples
+#   - pyproject.toml                                  [project].version
+#   - feature/showtape/devcontainer-feature.json      "version"
+#   - .devcontainer/devcontainer.json                 OCI feature ref tag
+#   - README.md                                       OCI feature ref tag + `vX.Y.Z` examples
 #
 # Not touched: src/showtape/__init__.py reads via importlib.metadata.
 #
@@ -50,20 +49,16 @@ data["version"] = new
 p.write_text(json.dumps(data, indent=2) + "\n")
 print(f"  {p.relative_to(root)} → \"version\": \"{new}\"")
 
-# 3 + 4. devcontainer.json files — OCI tag in feature ref
+# 3. .devcontainer/devcontainer.json — OCI tag in feature ref
 oci_re = re.compile(r"ghcr\.io/scottrigby/showtape/showtape:\d+\.\d+\.\d+(?:-[\w.-]+)?")
-for rel in [".devcontainer/devcontainer.json",
-            "_test-consumer/.devcontainer/devcontainer.json"]:
-    p = root / rel
-    if not p.exists():
-        continue
-    text = p.read_text()
-    new_text, n = oci_re.subn(f"ghcr.io/scottrigby/showtape/showtape:{new}", text)
-    if n:
-        p.write_text(new_text)
-        print(f"  {rel} → :{new} ({n} ref{'s' if n > 1 else ''})")
+p = root / ".devcontainer/devcontainer.json"
+text = p.read_text()
+new_text, n = oci_re.subn(f"ghcr.io/scottrigby/showtape/showtape:{new}", text)
+if n:
+    p.write_text(new_text)
+    print(f"  {p.relative_to(root)} → :{new} ({n} ref{'s' if n > 1 else ''})")
 
-# 5. README.md — OCI tag in feature ref AND git tag examples (vX.Y.Z)
+# 4. README.md — OCI tag in feature ref AND git tag examples (vX.Y.Z)
 p = root / "README.md"
 text = p.read_text()
 new_text, n_oci = oci_re.subn(f"ghcr.io/scottrigby/showtape/showtape:{new}", text)

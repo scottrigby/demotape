@@ -104,7 +104,7 @@ devcontainer exec --workspace-folder . showtape render demos/example.yaml
 
 ### Cutting a release
 
-The version is pinned in five places: `pyproject.toml`, `feature/showtape/devcontainer-feature.json`, the dev `.devcontainer/devcontainer.json`, the `_test-consumer/.devcontainer/devcontainer.json` test harness, and the README's example refs. `scripts/bump-version.sh` updates all five at once; `scripts/check-version-sync.sh` audits them. CI runs the same audit on every push to `main` and fails the release if anything is out of sync.
+The version is pinned in four places: `pyproject.toml`, `feature/showtape/devcontainer-feature.json`, the dev `.devcontainer/devcontainer.json`, and the README's example refs. `scripts/bump-version.sh` updates all four at once; `scripts/check-version-sync.sh` audits them. CI runs the same audit on every push to `main` and fails the release if anything is out of sync.
 
 ```bash
 ./scripts/bump-version.sh 0.3.0         # bumps + audits in one shot
