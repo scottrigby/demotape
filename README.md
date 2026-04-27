@@ -10,10 +10,12 @@ In any project's `.devcontainer/devcontainer.json`:
 {
   "image": "mcr.microsoft.com/devcontainers/base:debian",
   "features": {
-    "ghcr.io/scottrigby/showtape:1": {}
+    "ghcr.io/scottrigby/showtape/showtape:1": {}
   }
 }
 ```
+
+(The duplicated `showtape/showtape` is GHCR's convention for single-feature repos: `<owner>/<repo>/<feature-id>`. Pin to `:0.1.0` for reproducible builds; `:1` floats with the latest 1.x.)
 
 That installs everything (Playwright + Chromium, FFmpeg, VHS, ttyd, the `showtape` CLI, and a default Piper voice). Then in your project:
 
