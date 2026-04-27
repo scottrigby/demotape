@@ -2,45 +2,40 @@ title: terminal-sessions-demo
 resolution: { w: 1920, h: 1080 }
 voice: 0
 
-# Demonstrates terminal `session:` continuity across non-contiguous steps.
+# Demonstrates terminal `session:` continuity, including:
+#   - a session that's absent for one step and returns with full scrollback
+#   - a session that's resized between steps (multi-dim render)
 #
-# Two independent shells (`shell-A` and `shell-B`) stay visible in their
-# panes for the entire demo. To keep a session's scrollback on screen
-# during a step where it's not running new commands, declare `session: <id>`
-# on the pane in that step too — with empty `actions: []`. The session
-# tape covers every step from first to last appearance, so an "idle"
-# slice still shows the accumulated scrollback.
-#
-# Constraint: all occurrences of one session must use the same pane size
-# (different widths re-wrap scrollback differently). The renderer
-# validates and errors loudly if you mix layouts.
+# A session with `session: <id>` shares one shell across every pane that
+# declares the same id. Unlike v0.5, sessions can now appear at any pane
+# size — the renderer detects all unique sizes for each session and runs
+# VHS once per (session, size) pair so each appearance shows correctly-
+# wrapped scrollback.
 
-# Piper would otherwise render "shell-A" as one word ("shella"); the
-# pronunciations map respells it as two.
 pronunciations:
-  shell-A: "shell A"
-  shell-B: "shell B"
+  shell-A: "shell ay"     # avoid Piper merging the hyphen into one mushy syllable
+  shell-B: "shell bee"
 
 steps:
   - id: shell-A-first
-    narration: "Shell A starts up and runs its first command. Shell B is just sitting there."
+    narration: "Shell ay starts up and runs its first command."
     layout: 3-left
     panes:
       - type: browser
         actions:
           - goto: "https://github.com/scottrigby/showtape"
       - type: terminal
-        session: shell-A
+        session: shell-A      # 960x540 (3-pane left, small slot)
         actions:
           - type: "echo 'shell-A: command 1'"
           - enter: true
           - sleep_ms: 1500
       - type: terminal
-        session: shell-B   # idle, but kept alive so its slot stays consistent
+        session: shell-B      # 960x540 — kept alive idle so its slot stays continuous
         actions: []
 
   - id: shell-A-continues
-    narration: "Shell A continues. Both commands stay on screen."
+    narration: "Shell ay runs another command. Both commands stay on screen."
     layout: 3-left
     panes:
       - type: browser
@@ -56,15 +51,23 @@ steps:
         session: shell-B
         actions: []
 
-  - id: shell-B-first
-    narration: "Now shell B runs a command. Shell A keeps its history visible the whole time."
+  - id: full-screen-browser
+    narration: "Now we go full-screen on the browser. Neither shell is visible — but they're both still alive."
+    panes:
+      - type: browser        # 1-pane fullscreen, 1920x1080
+        actions:
+          - goto: "https://github.com/charmbracelet/vhs"
+      # No shell panes this step. Both sessions are paused, scrollback intact.
+
+  - id: shell-B-runs
+    narration: "Back to the split layout. Shell ay's history is right where we left it. Now shell bee runs a command."
     layout: 3-left
     panes:
       - type: browser
         actions:
-          - goto: "https://github.com/charmbracelet/vhs"
+          - goto: "https://github.com/scottrigby/showtape"
       - type: terminal
-        session: shell-A   # idle this step, but its prior scrollback stays on screen
+        session: shell-A      # 960x540 — same dim as steps 0/1, scrollback unchanged
         actions: []
       - type: terminal
         session: shell-B
@@ -73,23 +76,13 @@ steps:
           - enter: true
           - sleep_ms: 1500
 
-  - id: both-run
-    narration: "And both shells run new commands together. Each one remembers everything it ran before."
-    layout: 3-left
+  - id: shell-A-fullscreen
+    narration: "And shell ay can resize to full screen. All three of its commands are still here, just bigger."
     pause_ms: 500
     panes:
-      - type: browser
-        actions:
-          - goto: "https://github.com/scottrigby/showtape"
       - type: terminal
-        session: shell-A
+        session: shell-A      # 1920x1080 — DIFFERENT dim, second VHS render
         actions:
-          - type: "echo 'shell-A: command 3 — three commands now'"
-          - enter: true
-          - sleep_ms: 1500
-      - type: terminal
-        session: shell-B
-        actions:
-          - type: "echo 'shell-B: command 2 — two commands now'"
+          - type: "echo 'shell-A: command 3 — bigger now'"
           - enter: true
           - sleep_ms: 1500

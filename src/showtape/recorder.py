@@ -453,34 +453,25 @@ def _collect_terminal_sessions(step_plans):
     return sessions
 
 
-def _validate_session_dims(session_id, occurrences):
-    """All occurrences of one session must use the same pane dimensions.
+def _unique_session_dims(occurrences):
+    """Distinct (w, h) dims across this session's occurrences, preserving order."""
+    seen = []
+    for occ in occurrences:
+        if occ[3] not in seen:
+            seen.append(occ[3])
+    return seen
 
-    Different widths cause different terminal line-wrap, which breaks the
-    illusion of continuous scrollback (text reflows differently between
-    slices). Force consistency at config time with a clear error rather
-    than producing a subtly-wrong demo.
+
+def _compile_session_tape_for_dim(occurrences, output_mp4, dims):
+    """Build a tape covering ALL of a session's occurrences at one viewport dim.
+
+    Each (session, dim) pair gets its own tape + MP4. The shell runs the same
+    commands and accumulates the same scrollback content; only the line-wrap
+    at the viewport boundary differs. Per-step time offsets are identical
+    across dim variants because step durations don't depend on viewport.
+
+    Returns (tape_text, [(step_idx, start_ms_in_tape, duration_ms), ...]).
     """
-    distinct = sorted({occ[3] for occ in occurrences})
-    if len(distinct) > 1:
-        raise ValueError(
-            f"terminal session {session_id!r} appears at {len(distinct)} different "
-            f"pane sizes ({distinct}). Sessions must use the same dimensions across "
-            f"all steps so scrollback line-wrap stays consistent. Either use the "
-            f"same layout in every step that includes this session, or split into "
-            f"separate session ids per layout."
-        )
-
-
-def _compile_session_tape(occurrences, output_mp4):
-    """Build the tape for one session and the per-step time offsets.
-
-    Tape contains only the time slices when the session is on screen — no
-    inter-step Sleep filler — so the shell's accumulated scrollback at the
-    start of step N matches what was on screen at the end of step N-1's
-    occurrence. Returns (tape_text, [(step_idx, start_ms_in_tape, duration_ms), ...]).
-    """
-    dims = occurrences[0][3]
     lines = _tape_header(output_mp4, dims)
     offsets = []
     cursor_ms = 0
@@ -625,24 +616,31 @@ def render(yaml_path, out=None, work_dir=None, voice_model=None, keep_work=False
         print(f"  [{i}] {sid} ({n} pane{'s' if n > 1 else ''}{layout_str}) "
               f"narration={narration_ms}ms est={estimates} pause={pause_ms}ms → step={step_ms}ms")
 
-    # ---- Pass 2: render terminal session tapes (if any) ----
+    # ---- Pass 2: render terminal session tapes (one per (session, dim)) ----
+    # When a session appears at multiple dims (e.g., a shell that's split-screen
+    # in some steps and full-screen in others), we run VHS once per unique dim.
+    # Same shell, same commands, same scrollback content — different line-wrap
+    # at the viewport boundary. Cheap; deterministic.
     sessions = _collect_terminal_sessions(step_plans)
-    session_videos = {}    # session_id → (mp4_path, {step_idx: (start_ms, duration_ms)})
+    session_videos = {}    # (session_id, dims) → (mp4_path, {step_idx: (start_ms, duration_ms)})
     for sid, occs in sessions.items():
-        _validate_session_dims(sid, occs)
+        unique_dims = _unique_session_dims(occs)
         steps_str = ", ".join(str(o[0]) for o in occs)
-        print(f"\n=== Terminal session '{sid}' (steps {steps_str}, {occs[0][3]}) ===")
+        dim_str = ", ".join(f"{w}x{h}" for (w, h) in unique_dims)
+        print(f"\n=== Terminal session '{sid}' (steps {steps_str}, dims {dim_str}) ===")
         sess_dir = work / "sessions"
         sess_dir.mkdir(parents=True, exist_ok=True)
-        tape_path = sess_dir / f"{sid}.tape"
-        mp4_path = (sess_dir / f"{sid}.mp4").resolve()
-        tape_text, offsets = _compile_session_tape(occs, mp4_path)
-        tape_path.write_text(tape_text)
-        subprocess.run(["vhs", str(tape_path)], check=True)
-        session_videos[sid] = (
-            mp4_path,
-            {step_idx: (start_ms, dur_ms) for step_idx, start_ms, dur_ms in offsets},
-        )
+        for dims in unique_dims:
+            suffix = f"_{dims[0]}x{dims[1]}" if len(unique_dims) > 1 else ""
+            tape_path = sess_dir / f"{sid}{suffix}.tape"
+            mp4_path = (sess_dir / f"{sid}{suffix}.mp4").resolve()
+            tape_text, offsets = _compile_session_tape_for_dim(occs, mp4_path, dims)
+            tape_path.write_text(tape_text)
+            subprocess.run(["vhs", str(tape_path)], check=True)
+            session_videos[(sid, dims)] = (
+                mp4_path,
+                {step_idx: (start_ms, dur_ms) for step_idx, start_ms, dur_ms in offsets},
+            )
 
     # ---- Pass 3: render browser panes, slice session videos, composite ----
     clip_paths = []
@@ -662,11 +660,11 @@ def render(yaml_path, out=None, work_dir=None, voice_model=None, keep_work=False
                 sess_label = f" session={pane.get('session', 'default')}"
             elif t == "terminal" and "session" in pane:
                 sid_term = pane["session"]
-                session_mp4, offset_map = session_videos[sid_term]
+                session_mp4, offset_map = session_videos[(sid_term, dims)]
                 start_ms, duration_ms = offset_map[i]
                 v = work / "panes" / f"{i}-{j}-term-slice.mp4"
                 _slice_session_video(session_mp4, start_ms, duration_ms, v)
-                sess_label = f" session={sid_term} (sliced from {start_ms}ms)"
+                sess_label = f" session={sid_term} (sliced from {start_ms}ms @ {dims[0]}x{dims[1]})"
             else:
                 v = record_terminal_pane(pane, step_ms, dims,
                                          work / "panes", f"{i}-{j}-term")
