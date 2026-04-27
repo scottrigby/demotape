@@ -26,17 +26,14 @@ jobs:
         with:
           fetch-depth: 0    # need tags so we can detect "already released"
 
-      - name: Resolve and verify version
+      - name: Verify all version pins agree
+        run: ./scripts/check-version-sync.sh
+
+      - name: Resolve version + skip if already tagged
         id: ver
         run: |
           set -euo pipefail
-          PY=$(grep -E '^version = ' pyproject.toml   | head -1 | cut -d'"' -f2)
-          FEAT=$(jq -r '.version' feature/showtape/devcontainer-feature.json)
-          echo "pyproject=$PY  feature.json=$FEAT"
-          if [ "$PY" != "$FEAT" ]; then
-            echo "::error::pyproject.toml ($PY) ≠ feature.json ($FEAT). Run scripts/bump-version.sh to sync."
-            exit 1
-          fi
+          PY=$(grep -E '^version = ' pyproject.toml | head -1 | cut -d'"' -f2)
           if git rev-parse "v$PY" >/dev/null 2>&1; then
             echo "v$PY tag already exists — skipping release."
             echo "release=false" >> "$GITHUB_OUTPUT"

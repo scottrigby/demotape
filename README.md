@@ -104,13 +104,13 @@ devcontainer exec --workspace-folder . showtape render demos/example.yaml
 
 ### Cutting a release
 
-The Python package version (`pyproject.toml`) and the feature artifact version (`feature/showtape/devcontainer-feature.json`) must agree. `scripts/bump-version.sh` keeps them in sync; CI (`.github/workflows/release.yaml`) does everything else when a version-bump commit lands on `main`.
+The version is pinned in five places: `pyproject.toml`, `feature/showtape/devcontainer-feature.json`, the dev `.devcontainer/devcontainer.json`, the `_test-consumer/.devcontainer/devcontainer.json` test harness, and the README's example refs. `scripts/bump-version.sh` updates all five at once; `scripts/check-version-sync.sh` audits them. CI runs the same audit on every push to `main` and fails the release if anything is out of sync.
 
 ```bash
-./scripts/bump-version.sh 0.3.0
+./scripts/bump-version.sh 0.3.0         # bumps + audits in one shot
 git diff                                # sanity-check
 git commit -am "Bump to v0.3.0"
-git push origin main                    # CI tags v0.3.0 + publishes OCI feature + creates GitHub Release
+git push origin main                    # CI tags v0.3.0 + publishes OCI feature
 ```
 
 What CI does on each push to `main` that touches `pyproject.toml` or the feature manifest:
