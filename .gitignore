@@ -1,7 +1,8 @@
 .claude-config
 
-# Claudeman runtime binaries (injected, not project-authored)
+# Claudeman runtime binaries + persistent caches (pip, Playwright browsers, etc.)
 .claude/claudeman/bin/
+.claude/claudeman/cache/
 
 # Generated artifacts
 out/

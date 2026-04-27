@@ -32,9 +32,14 @@ case "$ARCH" in
 esac
 
 if ! command -v vhs >/dev/null 2>&1; then
-  echo "==> Installing VHS ($VHS_ARCH) → $BIN_DIR/vhs"
+  # VHS asset names include the version (vhs_<ver>_Linux_<arch>.tar.gz),
+  # so /latest/download/<file> can't resolve — fetch the tag from the API.
+  VHS_TAG="$(curl -fsSL https://api.github.com/repos/charmbracelet/vhs/releases/latest \
+    | python3 -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])')"
+  VHS_VER="${VHS_TAG#v}"
+  echo "==> Installing VHS ${VHS_TAG} ($VHS_ARCH) → $BIN_DIR/vhs"
   TMP="$(mktemp -d)"
-  curl -fsSL "https://github.com/charmbracelet/vhs/releases/latest/download/vhs_Linux_${VHS_ARCH}.tar.gz" \
+  curl -fsSL "https://github.com/charmbracelet/vhs/releases/download/${VHS_TAG}/vhs_${VHS_VER}_Linux_${VHS_ARCH}.tar.gz" \
     | tar xz -C "$TMP"
   install -m0755 "$TMP"/vhs*/vhs "$BIN_DIR/vhs"
   rm -rf "$TMP"
