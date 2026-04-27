@@ -288,13 +288,41 @@ def record_browser_pane(pane, target_ms, dims, video_dir):
 
 # ---------- Terminal pane ----------
 
+# `Set TypingSpeed` in VHS is global within a tape, so when `paste:` flips it
+# to instant and back, the "back" line must reference the same default that
+# the tape header writes. One constant, two referencers — keeps them honest.
+DEFAULT_TYPING_SPEED_MS = 50
+
+# Per-paste-chunk overhead estimate. A paste chunk emits Type (instant) +
+# Enter (~100ms) + a 300ms breath before the next chunk. Doesn't include
+# the actual command's runtime — that's what `sleep_ms:` after the paste
+# is for.
+PASTE_CHUNK_MS = 400
+
+
+def _paste_chunks(text: str) -> list[str]:
+    """Split a `paste:` value into one shell command per chunk.
+
+    YAML `|` block style preserves newlines and usually leaves a trailing
+    `\\n`; rstrip drops it. Empty lines (from blank lines in the source
+    YAML) are filtered out so we don't inject phantom Enters.
+
+    Backslash-newline continuations stay intact: each chunk ends with the
+    literal `\\` and the next chunk begins where the source line did.
+    Bash reassembles them as one command when typed in sequence.
+    """
+    return [c for c in text.rstrip().split("\n") if c.strip()]
+
+
 def estimate_terminal_ms(actions):
     total = 0
     for a in actions or []:
         if not isinstance(a, dict):
             continue
         if "type" in a:
-            total += len(a["type"]) * 50
+            total += len(a["type"]) * DEFAULT_TYPING_SPEED_MS
+        if "paste" in a:
+            total += len(_paste_chunks(a["paste"])) * PASTE_CHUNK_MS
         if a.get("enter"):
             total += 100
         if "sleep_ms" in a:
@@ -312,7 +340,7 @@ def compile_tape(actions, target_ms, output_mp4, dims):
         f"Set Width {dims[0]}",
         f"Set Height {dims[1]}",
         "Set FontSize 28",
-        "Set TypingSpeed 50ms",
+        f"Set TypingSpeed {DEFAULT_TYPING_SPEED_MS}ms",
         'Set Theme "Dracula"',
         "Set Padding 30",
     ]
@@ -320,7 +348,21 @@ def compile_tape(actions, target_ms, output_mp4, dims):
     for a in actions or []:
         if "type" in a:
             lines.append(f'Type "{vhs_escape(a["type"])}"')
-            used_ms += len(a["type"]) * 50
+            used_ms += len(a["type"]) * DEFAULT_TYPING_SPEED_MS
+        if "paste" in a:
+            # Switch to near-instant typing, emit each chunk + Enter, restore.
+            # Bash sees backslash-Enter as a continuation, so multi-line
+            # commands with trailing `\` reassemble correctly even though
+            # we Enter between every chunk.
+            chunks = _paste_chunks(a["paste"])
+            lines.append("Set TypingSpeed 1ms")
+            for i, chunk in enumerate(chunks):
+                lines.append(f'Type "{vhs_escape(chunk)}"')
+                lines.append("Enter")
+                if i < len(chunks) - 1:
+                    lines.append("Sleep 300ms")
+            lines.append(f"Set TypingSpeed {DEFAULT_TYPING_SPEED_MS}ms")
+            used_ms += len(chunks) * PASTE_CHUNK_MS
         if a.get("enter"):
             lines.append("Enter")
             used_ms += 100
