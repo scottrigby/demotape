@@ -330,8 +330,25 @@ def estimate_terminal_ms(actions):
     return total + 500
 
 
-def vhs_escape(s):
-    return s.replace("\\", "\\\\").replace('"', '\\"')
+def vhs_type_line(s: str) -> str:
+    """Render a `Type ...` line for the given string.
+
+    VHS's Type takes a quoted string but doesn't accept backslash escapes
+    — to include a `"` you have to wrap the whole string in single quotes
+    (and vice versa). Strings that contain BOTH quote styles can't be
+    Typed in a single call; raise so the user gets a clear error rather
+    than a cryptic VHS parser failure.
+    """
+    has_double = '"' in s
+    has_single = "'" in s
+    if has_double and has_single:
+        raise ValueError(
+            f"VHS Type can't render a string containing both ' and \". "
+            f"Either rephrase or split into separate type/paste actions: {s!r}"
+        )
+    if has_double:
+        return f"Type '{s}'"
+    return f'Type "{s}"'
 
 
 def compile_tape(actions, target_ms, output_mp4, dims):
@@ -347,7 +364,7 @@ def compile_tape(actions, target_ms, output_mp4, dims):
     used_ms = 0
     for a in actions or []:
         if "type" in a:
-            lines.append(f'Type "{vhs_escape(a["type"])}"')
+            lines.append(vhs_type_line(a["type"]))
             used_ms += len(a["type"]) * DEFAULT_TYPING_SPEED_MS
         if "paste" in a:
             # Switch to near-instant typing, emit each chunk + Enter, restore.
@@ -357,7 +374,7 @@ def compile_tape(actions, target_ms, output_mp4, dims):
             chunks = _paste_chunks(a["paste"])
             lines.append("Set TypingSpeed 1ms")
             for i, chunk in enumerate(chunks):
-                lines.append(f'Type "{vhs_escape(chunk)}"')
+                lines.append(vhs_type_line(chunk))
                 lines.append("Enter")
                 if i < len(chunks) - 1:
                     lines.append("Sleep 300ms")
