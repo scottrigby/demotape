@@ -80,39 +80,56 @@ def pane_dimensions(n, output_w, output_h, layout):
     raise ValueError(f"unsupported pane count: {n}")
 
 
-def filter_graph(n, layout, fps):
+def filter_graph(n, layout, fps, w, h):
     """FFmpeg filter graph stitching N pane videos into a single [v] stream.
 
     Pane videos are recorded at their final dimensions (see pane_dimensions),
     so we only need to normalise fps + sample aspect ratio, not rescale.
+    A 1px black separator is drawn between every pair of adjacent panes —
+    cheap, unobtrusive, and prevents two same-coloured panes from bleeding
+    into one another.
     """
     norm = lambda i, label: f"[{i}:v]fps={fps},setsar=1[{label}]"
+    vline = lambda x: f"drawbox=x={x}:y=0:w=1:h={h}:color=black:t=fill"
+    hline = lambda y: f"drawbox=x=0:y={y}:w={w}:h=1:color=black:t=fill"
+    vline_seg = lambda x, y0, y1: f"drawbox=x={x}:y={y0}:w=1:h={y1 - y0}:color=black:t=fill"
+    hline_seg = lambda y, x0, x1: f"drawbox=x={x0}:y={y}:w={x1 - x0}:h=1:color=black:t=fill"
+    mid_x, mid_y = w // 2, h // 2
 
     if n == 1:
         return norm(0, "v")
+
     if n == 2:
-        return ";".join([norm(0, "L"), norm(1, "R"), "[L][R]hstack=inputs=2[v]"])
-    if n == 3:
+        stack = ";".join([norm(0, "L"), norm(1, "R"), "[L][R]hstack=inputs=2[stacked]"])
+        seps = [vline(mid_x)]
+    elif n == 3:
         norms = ";".join([norm(0, "A"), norm(1, "B"), norm(2, "C")])
         if layout == "3-left":
-            stack = "[B][C]vstack=inputs=2[BC];[A][BC]hstack=inputs=2[v]"
+            stack = f"{norms};[B][C]vstack=inputs=2[BC];[A][BC]hstack=inputs=2[stacked]"
+            seps = [vline(mid_x), hline_seg(mid_y, mid_x, w)]
         elif layout == "3-right":
-            stack = "[B][C]vstack=inputs=2[BC];[BC][A]hstack=inputs=2[v]"
+            stack = f"{norms};[B][C]vstack=inputs=2[BC];[BC][A]hstack=inputs=2[stacked]"
+            seps = [vline(mid_x), hline_seg(mid_y, 0, mid_x)]
         elif layout == "3-top":
-            stack = "[B][C]hstack=inputs=2[BC];[A][BC]vstack=inputs=2[v]"
+            stack = f"{norms};[B][C]hstack=inputs=2[BC];[A][BC]vstack=inputs=2[stacked]"
+            seps = [hline(mid_y), vline_seg(mid_x, mid_y, h)]
         elif layout == "3-bottom":
-            stack = "[B][C]hstack=inputs=2[BC];[BC][A]vstack=inputs=2[v]"
+            stack = f"{norms};[B][C]hstack=inputs=2[BC];[BC][A]vstack=inputs=2[stacked]"
+            seps = [hline(mid_y), vline_seg(mid_x, 0, mid_y)]
         else:
             raise ValueError(f"unknown 3-pane layout: {layout}")
-        return f"{norms};{stack}"
-    if n == 4:
-        return ";".join([
+    elif n == 4:
+        stack = ";".join([
             norm(0, "TL"), norm(1, "TR"), norm(2, "BL"), norm(3, "BR"),
             "[TL][TR]hstack=inputs=2[T]",
             "[BL][BR]hstack=inputs=2[B]",
-            "[T][B]vstack=inputs=2[v]",
+            "[T][B]vstack=inputs=2[stacked]",
         ])
-    raise ValueError(f"unsupported pane count: {n}")
+        seps = [vline(mid_x), hline(mid_y)]
+    else:
+        raise ValueError(f"unsupported pane count: {n}")
+
+    return f"{stack};[stacked]{','.join(seps)}[v]"
 
 
 # ---------- Browser pane ----------
@@ -255,10 +272,10 @@ def record_terminal_pane(pane, target_ms, dims, work_dir, key):
 
 # ---------- Composite ----------
 
-def composite_step(pane_videos, audio_wav, output_mp4, total_ms, n_panes, layout):
+def composite_step(pane_videos, audio_wav, output_mp4, total_ms, n_panes, layout, w, h):
     output_mp4.parent.mkdir(parents=True, exist_ok=True)
     total_s = total_ms / 1000
-    fc = filter_graph(n_panes, layout, FPS) + f";[{n_panes}:a]apad=whole_dur={total_s}[a]"
+    fc = filter_graph(n_panes, layout, FPS, w, h) + f";[{n_panes}:a]apad=whole_dur={total_s}[a]"
     cmd = ["ffmpeg", "-y"]
     for v in pane_videos:
         cmd.extend(["-i", str(v)])
@@ -370,7 +387,8 @@ def main():
 
         # Composite
         clip_path = work / "clips" / f"{i}.mp4"
-        composite_step(pane_videos, narration_wav, clip_path, step_ms, n, layout)
+        composite_step(pane_videos, narration_wav, clip_path, step_ms, n, layout,
+                       output_w, output_h)
         clip_paths.append(clip_path)
 
     print(f"\n=== Concatenating {len(clip_paths)} clips → {out_path} ===")
