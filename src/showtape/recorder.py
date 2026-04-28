@@ -435,7 +435,7 @@ def _tape_header(output_mp4, dims):
         f'Output "{output_mp4}"',
         f"Set Width {dims[0]}",
         f"Set Height {dims[1]}",
-        "Set FontSize 28",
+        f"Set FontSize {_SESSION_FONT_SIZE}",
         f"Set TypingSpeed {DEFAULT_TYPING_SPEED_MS}ms",
         'Set Theme "Dracula"',
         "Set Padding 30",
@@ -476,11 +476,10 @@ def record_terminal_pane(pane, target_ms, dims, work_dir, key):
 # Commands run once (safe for write-ops); different steps can use different
 # viewport dims for the same session.
 #
-# Font size used for all session terminal recordings — same as the default
-# in _tape_header so session panes look visually consistent with plain
-# terminal panes. Larger viewport dims show the same content with empty
-# space to the right/bottom rather than scaling up the font.
-_SESSION_FONT_SIZE = 28
+# Font size used for all terminal panes (both plain and session).
+# Shared so every terminal in a demo has a consistent visual weight.
+# Configurable via the top-level `terminal_font_size:` YAML field (task #10).
+_SESSION_FONT_SIZE = 16
 
 # Monospace char width / line-height ratios for font → grid-size math.
 # Calibrated for JetBrains Mono (VHS default); ≤5% error at typical sizes.
