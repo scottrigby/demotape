@@ -100,9 +100,20 @@ Step duration = `max(narration, all action estimates) + end_buffer_ms`. Each pan
 
 `sleep_ms:` in terminal actions is for **mid-action pauses** only (e.g., waiting for a command to finish before typing the next one). A trailing `sleep_ms:` at the end of an actions list is redundant — the step's remaining time already pads every pane to `step_ms`. Use `end_buffer_ms:` on the step instead to extend viewing time after all actions complete.
 
-**Browser sessions** persist cookies / localStorage across steps within a render — `session: gmail` in step 2 and again in step 5 stays logged in. JavaScript-memory state (unsubmitted form values, open modals) does *not* persist; only what the page itself writes to cookies/storage.
+**Browser sessions** keep the full Playwright browser context alive across every step that uses the same `session:` id — the page, its URL, scroll position, sessionStorage, JS timers, and any in-flight form state are all preserved. A step that omits a session pane entirely leaves it untouched; when it reappears in a later step (with or without a `goto:`) it is exactly where it was left. This makes multi-tab flows possible: one session holds a signup form waiting at the verification-code field while a second session visits a Gmail inbox, captures the code, and hands it back via `paste_from:`. Browser sessions that do not declare `session:` use a fresh context per step (same as before v0.8.0). See `demos/browser-session.yaml` for an object-permanence walkthrough.
 
 **Terminal sessions** preserve scrollback across steps. A terminal pane with `session: <id>` shares one shell with every other pane using the same id, so commands run in step 1 are still on screen when the session reappears in step 5 — even if intervening steps don't include the terminal at all. Each step attaches a fresh VHS client to a persistent tmux session, records exactly that step's duration, and exits — no slicing or offset math. Sessions can appear at different viewport sizes across steps (e.g., split-screen then full-screen); commands execute exactly once, making sessions safe for write-ops (`helm upgrade`, `kubectl apply`, `git push`). See `demos/terminal-sessions.yaml` for a worked example.
+
+**`record: false`** runs every pane's actions (advancing browser session state, driving shell commands) but produces no clip — the step is completely invisible in the output video. Use it to hide long waits, write-ops that shouldn't appear on screen, or setup commands. `wait_ms:` on a `record: false` step is a pure Python sleep with no panes required — the simplest way to pause while a background shell process runs:
+
+```yaml
+- record: false
+  wait_ms: 10000   # 10-second invisible pause; background tasks run, browser sessions untouched
+```
+
+**`browser_warmup_ms:`** trims N milliseconds of page-load white canvas from the start of browser pane recordings before compositing. Add it to any step where `goto:` would otherwise show a blank page at the start.
+
+**`terminal_font_size:`** (top-level, default 18) sets the font size for all terminal panes — both plain and session. Session terminal geometry (cols × rows) is auto-computed from this font size and the smallest viewport dim the session appears at, so the terminal content always fits without overflow or dots.
 
 **Pronunciations** are a top-level YAML map applied as whole-word, case-insensitive substitutions before Piper synthesises each step's narration. Use plain respellings (`Kubernetes: "kuber-NETT-eez"`) for most cases, or espeak's inline IPA syntax (`GitHub: "[[g'It_hVb]]"`) when respelling doesn't sound right.
 
@@ -146,6 +157,8 @@ In a **browser pane**, `capture:` extracts DOM text and `fill:` accepts `paste_f
 ```
 
 Buffers persist across steps within one render; a `capture:` in step 2 is available to `paste_from:` in step 4.
+
+**Voice model auto-detection.** If `voice_model:` is omitted and exactly one `.onnx` model is installed across all search paths, it is used automatically. For multi-speaker models (e.g. `en_US-libritts_r-medium` has 904 speakers), `speaker:` selects the speaker index (default 0). Single-speaker models ignore `speaker:`. Both fields are optional when only one model and one speaker exist.
 
 **Stick to ASCII in `type:`/`paste:` action strings.** Smart quotes, em dashes (`—`), and other Unicode punctuation are sent through VHS → ttyd → bash readline as multi-byte UTF-8 sequences, and at least some byte values get interpreted by readline as command-line edit operations (transposing words, killing the line, etc.). Use plain `-` instead of `—`, plain `'`/`"` instead of curly quotes. Narration text (which goes through Piper, not the shell) is fine with any Unicode.
 
