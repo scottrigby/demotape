@@ -375,7 +375,7 @@ def estimate_terminal_ms(actions):
         if "capture" in a:
             total += 100   # near-instant tmux capture-pane call
         if "paste_from" in a:
-            total += 2000  # conservative estimate; actual length unknown at plan time
+            total += PASTE_CHUNK_MS  # near-instant like paste:
     return total + 500
 
 
@@ -690,12 +690,12 @@ def _drive_actions_via_tmux(tmux_sid, actions):
                     f"paste_from: buffer {a['paste_from']!r} is empty — "
                     "ensure a `capture:` action ran before this step"
                 )
-            for ch in _to_shell_safe_ascii(content):
-                subprocess.run(
-                    ["tmux", "send-keys", "-t", tmux_sid, "-l", ch],
-                    check=True, capture_output=True,
-                )
-                time.sleep(DEFAULT_TYPING_SPEED_MS / 1000)
+            # Near-instant, like paste: — no per-character delay.
+            subprocess.run(
+                ["tmux", "send-keys", "-t", tmux_sid, "-l",
+                 _to_shell_safe_ascii(content)],
+                check=True, capture_output=True,
+            )
 
 
 def _setup_sessions(step_plans, font_size):

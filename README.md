@@ -107,7 +107,7 @@ Step duration = `max(narration, all action estimates) + end_buffer_ms`. Each pan
 
 `capture: <name>` — in a **session terminal**, snapshots the last command's visible output. A `sleep_ms:` before it is required so the command finishes first.
 
-`paste_from: <name>` — in a **session terminal**, types the buffer char-by-char (same feel as `type:`). Works in a later step than the `capture:` — buffers persist for the full render.
+`paste_from: <name>` — in a **session terminal**, pastes the buffer near-instantly (same feel as `paste:`). Works in a later step than the `capture:` — buffers persist for the full render.
 
 In a **browser pane**, `capture:` extracts DOM text and `fill:` accepts `paste_from:` instead of `value:`:
 
