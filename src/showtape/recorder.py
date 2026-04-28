@@ -703,6 +703,13 @@ def _setup_sessions(step_plans, font_size):
             ["tmux", "set-option", "-t", tmux_sid, "window-size", "latest"],
             check=True, capture_output=True,
         )
+        # Simple prompt required for capture: to parse last command output.
+        # Also cleaner visually in recordings than the full hostname prompt.
+        subprocess.run(
+            ["tmux", "send-keys", "-t", tmux_sid, "export PS1='$ '", "Enter"],
+            check=True, capture_output=True,
+        )
+        time.sleep(0.15)
         result[sid] = tmux_sid
         dim_str = ", ".join(f"{w}x{h}" for (w, h) in unique_dims)
         print(f"  session '{sid}' → tmux '{tmux_sid}' {cols}x{rows} font={font_size}px ({dim_str})")

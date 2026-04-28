@@ -1,0 +1,68 @@
+title: sessions-demo
+resolution: { w: 1920, h: 1080 }
+speaker: 0
+
+# Demonstrates four session features in one demo:
+#   - terminal session continuity (scrollback survives across steps)
+#   - cross-session copy/paste via capture: / paste_from:
+#   - browser session navigation across steps (same session, different URLs)
+#   - a session appearing at two viewport sizes (split-screen then full-screen)
+
+pronunciations:
+  showtape: "show tape"
+
+steps:
+  - id: generate-tag
+    narration: "Shell A generates a build tag. The capture action stores it so any session can use it later."
+    layout: 3-left
+    panes:
+      - type: browser
+        session: docs
+        actions:
+          - goto: "https://github.com/scottrigby/showtape"
+      - type: terminal
+        session: shell-A
+        actions:
+          - type: "TAG=v$(date +%Y%m%d-%H%M%S) && echo $TAG"
+          - enter: true
+          - sleep_ms: 1000
+          - capture: build_tag    # store last output line for cross-session use
+      - type: terminal
+        session: shell-B
+        actions: []               # shell-B is live but idle this step
+
+  - id: cross-session-paste
+    narration: "Shell B receives the tag from Shell A — no manual copy-paste. The browser session navigates to a new page while both shells continue."
+    layout: 3-left
+    panes:
+      - type: browser
+        session: docs             # same session — cookies and navigation state persist
+        actions:
+          - goto: "https://github.com/scottrigby/showtape/blob/main/README.md"
+      - type: terminal
+        session: shell-A          # shell-A scrollback from step 1 still visible
+        actions:
+          - type: "echo 'Tag is in the shared buffer'"
+          - enter: true
+          - sleep_ms: 1000
+      - type: terminal
+        session: shell-B
+        actions:
+          - type: "DEPLOY_TAG="
+          - paste_from: build_tag  # types the captured value char-by-char
+          - enter: true
+          - sleep_ms: 300
+          - type: "echo Deploying $DEPLOY_TAG"
+          - enter: true
+          - sleep_ms: 1500
+
+  - id: shell-A-fullscreen
+    narration: "Shell A goes full screen. Both commands from earlier steps are right here in scrollback."
+    end_buffer_ms: 500
+    panes:
+      - type: terminal
+        session: shell-A          # same session, now at 1920x1080 — history intact
+        actions:
+          - type: "echo 'Full scrollback across all steps'"
+          - enter: true
+          - sleep_ms: 2000
