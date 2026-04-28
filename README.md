@@ -103,6 +103,28 @@ Step duration = `max(narration, all action estimates) + end_buffer_ms`. Each pan
 
 **Terminal actions: `type:` vs `paste:`.** `type:` emits one character at a time (50 ms each — VHS default), giving the natural live-typing feel for short commands. `paste:` emits everything near-instantly, the way a paste from clipboard reads in a real terminal. Use it for long commands that would otherwise spend 10+ seconds typing letter-by-letter. `paste:` accepts multi-line YAML (with `|` literal block style) and treats each line as a separate command — backslash continuations work because bash reassembles them on its own.
 
+**Cross-session copy/paste.** `capture: <name>` snapshots the last command's output from a session terminal into a named buffer. `paste_from: <name>` types that buffer into another session, char-by-char (same visual feel as `type:`). Both actions only work inside `session:` panes. Useful for realistic "grab the pod name, use it in the next command" demos:
+
+```yaml
+- type: terminal
+  session: shell-A
+  actions:
+    - type: "kubectl get pods -o name | head -1"
+    - enter: true
+    - sleep_ms: 2000
+    - capture: pod_name        # snapshot output of the above command
+
+- type: terminal
+  session: shell-B
+  actions:
+    - type: "kubectl logs "
+    - paste_from: pod_name     # types the captured value char-by-char
+    - enter: true
+    - sleep_ms: 3000
+```
+
+Buffers persist across steps within one render; a `capture:` in step 2 is available to `paste_from:` in step 4.
+
 **Stick to ASCII in `type:`/`paste:` action strings.** Smart quotes, em dashes (`—`), and other Unicode punctuation are sent through VHS → ttyd → bash readline as multi-byte UTF-8 sequences, and at least some byte values get interpreted by readline as command-line edit operations (transposing words, killing the line, etc.). Use plain `-` instead of `—`, plain `'`/`"` instead of curly quotes. Narration text (which goes through Piper, not the shell) is fine with any Unicode.
 
 ## CLI

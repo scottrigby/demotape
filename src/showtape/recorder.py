@@ -41,6 +41,10 @@ LAYOUTS_3 = ("3-left", "3-right", "3-top", "3-bottom")
 # across steps within one render call; reset each call.
 _session_storage: dict[str, dict] = {}
 
+# Named cross-session copy buffers. Populated by `capture:` actions and
+# consumed by `paste_from:` actions. Reset each render call.
+_session_buffers: dict[str, str] = {}
+
 
 # ---------- Voice model resolution ----------
 
@@ -355,6 +359,10 @@ def estimate_terminal_ms(actions):
             total += 100
         if "sleep_ms" in a:
             total += int(a["sleep_ms"])
+        if "capture" in a:
+            total += 100   # near-instant tmux capture-pane call
+        if "paste_from" in a:
+            total += 2000  # conservative estimate; actual length unknown at plan time
     return total + 500
 
 
@@ -575,11 +583,49 @@ def _wait_for_tmux_clients(tmux_sid, n, timeout_s=20.0):
     )
 
 
+def _capture_last_output(tmux_sid, buffer_name):
+    """Capture the last command's output from a tmux pane into _session_buffers.
+
+    Parses tmux capture-pane output using the known '$ ' prompt format.
+    Looks for the most recent block of non-prompt lines between the last two
+    '$ ...' prompt lines. The result is stripped and stored under buffer_name.
+    """
+    result = subprocess.run(
+        ["tmux", "capture-pane", "-p", "-t", tmux_sid],
+        capture_output=True, text=True, check=True,
+    )
+    lines = result.stdout.split("\n")
+    # Find last empty prompt (just "$" or "$ ")
+    last_prompt = None
+    for i in range(len(lines) - 1, -1, -1):
+        if lines[i].rstrip() in ("$", "$ "):
+            last_prompt = i
+            break
+    # Find previous prompt+command line (starts with "$ " and has content)
+    prev_prompt = None
+    if last_prompt is not None:
+        for i in range(last_prompt - 1, -1, -1):
+            if lines[i].startswith("$ ") and len(lines[i].strip()) > 1:
+                prev_prompt = i
+                break
+    if prev_prompt is not None and last_prompt is not None:
+        output = "\n".join(
+            l.rstrip() for l in lines[prev_prompt + 1:last_prompt] if l.strip()
+        )
+        _session_buffers[buffer_name] = output
+    else:
+        _session_buffers[buffer_name] = ""
+
+
 def _drive_actions_via_tmux(tmux_sid, actions):
     """Drive terminal actions into a live tmux session via send-keys.
 
     Mirrors _emit_terminal_actions semantics (same action types, same timing)
     but sends to a live shell instead of emitting tape lines.
+
+    Extra actions beyond _emit_terminal_actions:
+      capture: <name>     — snapshot last command's output to a named buffer
+      paste_from: <name>  — type a previously captured buffer char-by-char
     """
     for a in actions or []:
         if "type" in a:
@@ -612,6 +658,21 @@ def _drive_actions_via_tmux(tmux_sid, actions):
             time.sleep(0.1)
         if "sleep_ms" in a:
             time.sleep(int(a["sleep_ms"]) / 1000)
+        if "capture" in a:
+            _capture_last_output(tmux_sid, a["capture"])
+        if "paste_from" in a:
+            content = _session_buffers.get(a["paste_from"], "")
+            if not content:
+                raise ValueError(
+                    f"paste_from: buffer {a['paste_from']!r} is empty — "
+                    "ensure a `capture:` action ran before this step"
+                )
+            for ch in _to_shell_safe_ascii(content):
+                subprocess.run(
+                    ["tmux", "send-keys", "-t", tmux_sid, "-l", ch],
+                    check=True, capture_output=True,
+                )
+                time.sleep(DEFAULT_TYPING_SPEED_MS / 1000)
 
 
 def _setup_sessions(step_plans, font_size):
@@ -763,8 +824,9 @@ def render(yaml_path, out=None, work_dir=None, voice_model=None, keep_work=False
             f"({num_speakers} speaker{'s' if num_speakers != 1 else ''}; valid: 0–{num_speakers - 1})"
         )
 
-    # Reset browser session storage per-render.
+    # Reset per-render state.
     _session_storage.clear()
+    _session_buffers.clear()
 
     # ---- Pass 1: plan every step (synth narration, compute durations, layout) ----
     # Splitting this off lets us know all step durations BEFORE we render any
