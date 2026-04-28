@@ -13,7 +13,7 @@ speaker: 0
 
 pronunciations:
   showtape: "show tape"
-  DOM: "dom"
+  DOM: "Dom"
 
 steps:
   - id: generate-token
