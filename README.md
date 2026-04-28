@@ -58,7 +58,7 @@ pronunciations:                       # optional — applied to every step's nar
 
 steps:
   - narration: "Open the dashboard."
-    pause_ms: 250                  # optional, post-step extension
+    end_buffer_ms: 250             # optional, post-step extension
     panes:                         # 1–4 entries; layout is derived
       - type: browser
         session: dashboard         # optional; cookies/storage persist across steps
@@ -91,11 +91,11 @@ Layouts come from pane count:
 | 3 | `3-left` (default), `3-right`, `3-top`, `3-bottom` | Pane 0 is the "big" pane |
 | 4 | 2×2 grid | Index order: TL, TR, BL, BR |
 
-Step duration = `max(narration, all action estimates) + pause_ms`. Each pane stretches to fill the step.
+Step duration = `max(narration, all action estimates) + end_buffer_ms`. Each pane stretches to fill the step.
 
 **Browser sessions** persist cookies / localStorage across steps within a render — `session: gmail` in step 2 and again in step 5 stays logged in. JavaScript-memory state (unsubmitted form values, open modals) does *not* persist; only what the page itself writes to cookies/storage.
 
-**Terminal sessions** preserve scrollback across steps. A terminal pane with `session: <id>` shares one shell with every other pane using the same id, so commands run in step 1 are still on screen when the session reappears in step 5 — even if intervening steps don't include the terminal at all. Sessions render at multiple viewport sizes (e.g., split-screen in some steps, full-screen in others) by running each command exactly once in a shared tmux session while VHS clients at each dim capture simultaneously — making sessions safe for write-ops (`helm upgrade`, `kubectl apply`, `git push`). See `demos/terminal-sessions-v2.yaml` for a worked example.
+**Terminal sessions** preserve scrollback across steps. A terminal pane with `session: <id>` shares one shell with every other pane using the same id, so commands run in step 1 are still on screen when the session reappears in step 5 — even if intervening steps don't include the terminal at all. Each step attaches a fresh VHS client to a persistent tmux session, records exactly that step's duration, and exits — no slicing or offset math. Sessions can appear at different viewport sizes across steps (e.g., split-screen then full-screen); commands execute exactly once, making sessions safe for write-ops (`helm upgrade`, `kubectl apply`, `git push`). See `demos/terminal-sessions.yaml` for a worked example.
 
 **Pronunciations** are a top-level YAML map applied as whole-word, case-insensitive substitutions before Piper synthesises each step's narration. Use plain respellings (`Kubernetes: "kuber-NETT-eez"`) for most cases, or espeak's inline IPA syntax (`GitHub: "[[g'It_hVb]]"`) when respelling doesn't sound right.
 
