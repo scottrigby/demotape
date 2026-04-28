@@ -10,7 +10,7 @@ In any project's `.devcontainer/devcontainer.json`:
 {
   "image": "mcr.microsoft.com/devcontainers/base:debian",
   "features": {
-    "ghcr.io/scottrigby/showtape/showtape:0.6.2": {}
+    "ghcr.io/scottrigby/showtape/showtape:0.7.0": {}
   }
 }
 ```
@@ -26,7 +26,7 @@ Feature options (set in `devcontainer.json`):
 
 | Option | Default | Effect |
 |---|---|---|
-| `version` | `main` | Git ref of `scottrigby/showtape` to install — branch (`main`), tag (`v0.6.2`), or commit. Pin to a tag for reproducible builds. |
+| `version` | `main` | Git ref of `scottrigby/showtape` to install — branch (`main`), tag (`v0.7.0`), or commit. Pin to a tag for reproducible builds. |
 | `voiceModel` | `en_US-libritts_r-medium` | Piper voice to pre-fetch. Empty string disables. |
 | `installChromium` | `true` | Install Playwright's Chromium + system deps. Set false for terminal-only demos. |
 
@@ -58,7 +58,7 @@ pronunciations:                       # optional — applied to every step's nar
 
 steps:
   - narration: "Open the dashboard."
-    pause_ms: 250                  # optional, post-step extension
+    end_buffer_ms: 250             # optional, post-step extension
     panes:                         # 1–4 entries; layout is derived
       - type: browser
         session: dashboard         # optional; cookies/storage persist across steps
@@ -77,7 +77,7 @@ steps:
           - paste: |                                # near-instant, multi-line
               helm upgrade --install my-app chart/ \
                 -n staging \
-                --set image.tag=v0.6.2
+                --set image.tag=v0.7.0
               kubectl -n staging get pods
           - sleep_ms: 60000                         # let the actual command run
 ```
@@ -91,11 +91,11 @@ Layouts come from pane count:
 | 3 | `3-left` (default), `3-right`, `3-top`, `3-bottom` | Pane 0 is the "big" pane |
 | 4 | 2×2 grid | Index order: TL, TR, BL, BR |
 
-Step duration = `max(narration, all action estimates) + pause_ms`. Each pane stretches to fill the step.
+Step duration = `max(narration, all action estimates) + end_buffer_ms`. Each pane stretches to fill the step.
 
 **Browser sessions** persist cookies / localStorage across steps within a render — `session: gmail` in step 2 and again in step 5 stays logged in. JavaScript-memory state (unsubmitted form values, open modals) does *not* persist; only what the page itself writes to cookies/storage.
 
-**Terminal sessions** preserve scrollback across steps. A terminal pane with `session: <id>` shares one shell with every other pane using the same id, so commands run in step 1 are still on screen when the session reappears in step 5 — even if intervening steps don't include the terminal at all. **Constraint:** all occurrences of one session must use the same pane dimensions (different widths re-wrap scrollback differently and break the illusion of continuity); the renderer validates this and errors loudly if you mix layouts. See `demos/terminal-sessions.yaml` for a multi-session worked example.
+**Terminal sessions** preserve scrollback across steps. A terminal pane with `session: <id>` shares one shell with every other pane using the same id, so commands run in step 1 are still on screen when the session reappears in step 5 — even if intervening steps don't include the terminal at all. Each step attaches a fresh VHS client to a persistent tmux session, records exactly that step's duration, and exits — no slicing or offset math. Sessions can appear at different viewport sizes across steps (e.g., split-screen then full-screen); commands execute exactly once, making sessions safe for write-ops (`helm upgrade`, `kubectl apply`, `git push`). See `demos/terminal-sessions.yaml` for a worked example.
 
 **Pronunciations** are a top-level YAML map applied as whole-word, case-insensitive substitutions before Piper synthesises each step's narration. Use plain respellings (`Kubernetes: "kuber-NETT-eez"`) for most cases, or espeak's inline IPA syntax (`GitHub: "[[g'It_hVb]]"`) when respelling doesn't sound right.
 
@@ -117,11 +117,16 @@ showtape --version
 
 The repo eats its own dog food: opening it in a devcontainer-aware editor (VS Code Dev Containers extension, JetBrains Gateway, `devcontainer-cli`) builds a dev environment via the showtape feature itself, then `pip install -e .` overrides the from-git install with the live source.
 
+**If you open the repo via a generic devcontainer profile** (e.g. a claudeman profile that doesn't use the repo's own `.devcontainer/`) the editable install won't fire automatically. Run this once at the start of the session:
+
+```bash
+pip install --user -e . && export PATH="$HOME/.local/bin:$PATH"
+```
+
 ```bash
 git clone https://github.com/scottrigby/showtape && cd showtape
 # In VS Code: "Reopen in Container" — or:
-devcontainer up --workspace-folder .
-devcontainer exec --workspace-folder . showtape fetch-voice en_US-libritts_r-medium
+devcontainer up --workspace-folder . --log-format json   # --log-format json avoids progress-bar terminal hijack
 devcontainer exec --workspace-folder . showtape render demos/example.yaml
 ```
 
@@ -132,8 +137,8 @@ The version is pinned in four places: `pyproject.toml`, `feature/showtape/devcon
 ```bash
 ./scripts/bump-version.sh 0.3.0         # bumps + audits in one shot
 git diff                                # sanity-check
-git commit -am "Bump to v0.6.2"
-git push origin main                    # CI tags v0.6.2 + publishes OCI feature
+git commit -am "Bump to v0.7.0"
+git push origin main                    # CI tags v0.7.0 + publishes OCI feature
 ```
 
 What CI does on each push to `main` that touches `pyproject.toml` or the feature manifest:
