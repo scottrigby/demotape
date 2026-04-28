@@ -383,7 +383,8 @@ def record_browser_pane(pane, target_ms, dims, video_dir, warmup_ms=0):
 
 def advance_browser_pane(pane, dims):
     """Run browser pane actions without recording — advances session state only."""
-    _run_browser_session(pane, dims, record=False)
+    if pane.get("actions"):
+        _run_browser_session(pane, dims, record=False)
 
 
 # ---------- Terminal pane ----------
@@ -790,7 +791,8 @@ def _setup_sessions(step_plans, font_size):
 
 def advance_terminal_session_pane(pane, tmux_sid):
     """Drive session terminal actions without recording — advances shell state only."""
-    _drive_actions_via_tmux(tmux_sid, pane.get("actions", []))
+    if pane.get("actions"):
+        _drive_actions_via_tmux(tmux_sid, pane.get("actions", []))
 
 
 def _teardown_sessions(session_map):

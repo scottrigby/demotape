@@ -1,0 +1,84 @@
+title: record-false-demo
+resolution: { w: 1920, h: 1080 }
+speaker: 0
+
+# Demonstrates three advanced recording features:
+#
+#   record: false   — a step whose actions run and advance state but never
+#                     appear in the output video. Use it to hide waits,
+#                     idempotent write-ops, or setup commands.
+#
+#   browser scroll persistence — a browser session stays scrolled where the
+#                     previous step left it, even across a record: false step.
+#
+#   browser_warmup_ms — trims N ms of white loading canvas from the start of
+#                     browser pane recordings.
+#
+# Story: we kick off a background task, skip past the wait, then cut straight
+# to the completed result. The browser never reloads — it's still scrolled to
+# the same position three steps later.
+
+pronunciations:
+  showtape: "show tape"
+
+steps:
+  - id: kick-off
+    narration: "We start a background task and scroll the docs to the architecture section."
+    layout: 3-left
+    end_buffer_ms: 1000
+    browser_warmup_ms: 1500    # hide the initial white loading canvas
+    panes:
+      - type: browser
+        session: docs
+        actions:
+          - goto: "https://github.com/scottrigby/showtape"
+          - scroll: { y: 900 }   # scroll to architecture section
+      - type: terminal
+        session: ops
+        actions:
+          - type: "echo 'Task started at' $(date +%T)"
+          - enter: true
+          - sleep_ms: 300
+          - type: "sleep 6 && echo 'Task complete at' $(date +%T)"
+          - enter: true
+      - type: terminal
+        session: logs
+        actions:
+          - type: "echo 'Watching logs...'"
+          - enter: true
+
+  - id: wait-hidden
+    narration: ""           # no narration — this step is invisible
+    record: false           # 6-second wait hidden from the viewer
+    layout: 3-left
+    panes:
+      - type: browser
+        session: docs
+        actions: []         # no navigation — scroll position preserved automatically
+      - type: terminal
+        session: ops
+        actions:
+          - sleep_ms: 7000  # wait for the background task to complete
+      - type: terminal
+        session: logs
+        actions:
+          - sleep_ms: 7000
+
+  - id: result
+    narration: "The task finished while you weren't watching. The browser is exactly where we left it — no reload."
+    layout: 3-left
+    end_buffer_ms: 1500
+    panes:
+      - type: browser
+        session: docs
+        actions: []         # still scrolled to y=900 from step 1
+      - type: terminal
+        session: ops
+        actions:
+          - type: "echo 'Done. Elapsed since start:' $(date +%T)"
+          - enter: true
+      - type: terminal
+        session: logs
+        actions:
+          - type: "echo 'All checks passed'"
+          - enter: true
