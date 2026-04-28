@@ -45,10 +45,15 @@ _session_scroll: dict[str, int] = {}
 # Last navigated URL keyed by browser session id.
 _session_url: dict[str, str] = {}
 
+# One shared Playwright instance for the entire render. All browser ops
+# (live sessions and per-step fresh contexts) share this instance — Playwright
+# only allows one sync_playwright() per process at a time.
+_playwright = None
+
 # Live Playwright contexts for named browser sessions.
 # Kept alive for the entire render so the page (JS state, timers, form values)
 # persists across steps without re-navigation.
-_live_browsers: dict = {}  # session_id → {pw, browser, ctx, page}
+_live_browsers: dict = {}  # session_id → {browser, ctx, page}
 
 # Named cross-session copy buffers.
 _session_buffers: dict[str, str] = {}
@@ -327,11 +332,10 @@ def _setup_browser_sessions(step_plans):
                 session_ids.add(pane["session"])
 
     for sid in sorted(session_ids):
-        pw = sync_playwright().start()
-        browser = pw.chromium.launch(headless=True)
+        browser = _playwright.chromium.launch(headless=True)
         ctx = browser.new_context(viewport={"width": 1920, "height": 1080})
         page = ctx.new_page()
-        _live_browsers[sid] = {"pw": pw, "browser": browser, "ctx": ctx, "page": page}
+        _live_browsers[sid] = {"browser": browser, "ctx": ctx, "page": page}
         print(f"  browser session '{sid}' → live Playwright context")
 
 
@@ -341,10 +345,26 @@ def _teardown_browser_sessions():
         try:
             info["ctx"].close()
             info["browser"].close()
-            info["pw"].stop()
         except Exception:
             pass
     _live_browsers.clear()
+
+
+def _start_playwright():
+    """Start the shared Playwright instance used by all browser operations."""
+    global _playwright
+    _playwright = sync_playwright().start()
+
+
+def _stop_playwright():
+    """Stop the shared Playwright instance."""
+    global _playwright
+    if _playwright is not None:
+        try:
+            _playwright.stop()
+        except Exception:
+            pass
+        _playwright = None
 
 
 def run_browser_action(page, action):
@@ -406,57 +426,53 @@ def _run_browser_session(pane, dims, target_ms=None, record=True, video_dir=None
     actions = pane.get("actions", [])
     storage = _session_storage.get(session)
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        ctx_kwargs = dict(viewport={"width": dims[0], "height": dims[1]})
-        if record:
-            ctx_kwargs["record_video_dir"] = str(video_dir)
-            ctx_kwargs["record_video_size"] = {"width": dims[0], "height": dims[1]}
-        if storage is not None:
-            ctx_kwargs["storage_state"] = storage
-        ctx = browser.new_context(**ctx_kwargs)
-        page = ctx.new_page()
+    browser = _playwright.chromium.launch(headless=True)
+    ctx_kwargs = dict(viewport={"width": dims[0], "height": dims[1]})
+    if record:
+        ctx_kwargs["record_video_dir"] = str(video_dir)
+        ctx_kwargs["record_video_size"] = {"width": dims[0], "height": dims[1]}
+    if storage is not None:
+        ctx_kwargs["storage_state"] = storage
+    ctx = browser.new_context(**ctx_kwargs)
+    page = ctx.new_page()
 
-        # Restore scroll position from previous step in this session.
-        # Happens after the first goto fires (page must exist first).
-        scroll_restored = False
+    # Restore scroll position from previous step in this session.
+    scroll_restored = False
 
-        def maybe_restore_scroll():
-            nonlocal scroll_restored
-            if not scroll_restored and session in _session_scroll:
-                try:
-                    page.evaluate(f"window.scrollTo(0, {_session_scroll[session]})")
-                except Exception:
-                    pass
-                scroll_restored = True
+    def maybe_restore_scroll():
+        nonlocal scroll_restored
+        if not scroll_restored and session in _session_scroll:
+            try:
+                page.evaluate(f"window.scrollTo(0, {_session_scroll[session]})")
+            except Exception:
+                pass
+            scroll_restored = True
 
-        start = time.monotonic()
-        try:
-            for action in actions:
-                run_browser_action(page, action)
-                # Restore scroll after the first goto so it applies to the loaded page.
-                if "goto" in action:
-                    maybe_restore_scroll()
-        except Exception as e:
-            print(f"  ! browser action error: {e}", file=sys.stderr)
+    start = time.monotonic()
+    try:
+        for action in actions:
+            run_browser_action(page, action)
+            if "goto" in action:
+                maybe_restore_scroll()
+    except Exception as e:
+        print(f"  ! browser action error: {e}", file=sys.stderr)
 
-        if record and target_ms is not None:
-            elapsed_ms = int((time.monotonic() - start) * 1000)
-            remaining = target_ms - elapsed_ms
-            if remaining > 0:
-                page.wait_for_timeout(remaining)
+    if record and target_ms is not None:
+        elapsed_ms = int((time.monotonic() - start) * 1000)
+        remaining = target_ms - elapsed_ms
+        if remaining > 0:
+            page.wait_for_timeout(remaining)
 
-        # Save scroll position and storage state for next step.
-        try:
-            _session_scroll[session] = page.evaluate("window.scrollY") or 0
-        except Exception:
-            pass
-        try:
-            _session_storage[session] = ctx.storage_state()
-        except Exception as e:
-            print(f"  ! could not save session storage: {e}", file=sys.stderr)
-        ctx.close()
-        browser.close()
+    try:
+        _session_scroll[session] = page.evaluate("window.scrollY") or 0
+    except Exception:
+        pass
+    try:
+        _session_storage[session] = ctx.storage_state()
+    except Exception as e:
+        print(f"  ! could not save session storage: {e}", file=sys.stderr)
+    ctx.close()
+    browser.close()
 
     if not record:
         return None
@@ -1069,6 +1085,7 @@ def render(yaml_path, out=None, work_dir=None, voice_model=None, keep_work=False
     _session_url.clear()
     _session_buffers.clear()
     _live_browsers.clear()
+    _start_playwright()
 
     # ---- Pass 1: plan every step (synth narration, compute durations, layout) ----
     # Splitting this off lets us know all step durations BEFORE we render any
@@ -1199,6 +1216,7 @@ def render(yaml_path, out=None, work_dir=None, voice_model=None, keep_work=False
     finally:
         _teardown_sessions(session_map)
         _teardown_browser_sessions()
+        _stop_playwright()
 
     print(f"\n=== Concatenating {len(clip_paths)} clips → {out_path} ===")
     concat_clips(clip_paths, out_path, work)
