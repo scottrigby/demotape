@@ -81,6 +81,27 @@ steps:
         session: shell-B
         actions: []
 
+  - id: terminal-to-browser
+    narration: "The auth token from step one is pasted directly into a browser form field — no clipboard needed."
+    layout: 3-left
+    panes:
+      - type: browser
+        session: web
+        actions:
+          - goto: "https://duckduckgo.com"
+          - wait_for: "input[name=q]"
+          - fill: { selector: "input[name=q]", paste_from: auth_token }
+          - sleep_ms: 1500
+      - type: terminal
+        session: shell-A
+        actions:
+          - type: "echo 'Token sent to browser'"
+          - enter: true
+          - sleep_ms: 1000
+      - type: terminal
+        session: shell-B
+        actions: []
+
   - id: browser-to-terminal
     narration: "Browser capture extracts text from the page DOM and pastes it into the terminal."
     layout: 3-left

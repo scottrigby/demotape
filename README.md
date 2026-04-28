@@ -103,7 +103,24 @@ Step duration = `max(narration, all action estimates) + end_buffer_ms`. Each pan
 
 **Terminal actions: `type:` vs `paste:`.** `type:` emits one character at a time (50 ms each — VHS default), giving the natural live-typing feel for short commands. `paste:` emits everything near-instantly, the way a paste from clipboard reads in a real terminal. Use it for long commands that would otherwise spend 10+ seconds typing letter-by-letter. `paste:` accepts multi-line YAML (with `|` literal block style) and treats each line as a separate command — backslash continuations work because bash reassembles them on its own.
 
-**Cross-session copy/paste.** `capture: <name>` snapshots the last command's output from a session terminal into a named buffer. `paste_from: <name>` types that buffer into another session, char-by-char (same visual feel as `type:`). Both actions only work inside `session:` panes. Useful for realistic "grab the pod name, use it in the next command" demos:
+**Cross-pane copy/paste.** Named buffers flow between terminal sessions, browser panes, and across steps.
+
+`capture: <name>` — in a **session terminal**, snapshots the last command's visible output. A `sleep_ms:` before it is required so the command finishes first.
+
+`paste_from: <name>` — in a **session terminal**, types the buffer char-by-char (same feel as `type:`). Works in a later step than the `capture:` — buffers persist for the full render.
+
+In a **browser pane**, `capture:` extracts DOM text and `fill:` accepts `paste_from:` instead of `value:`:
+
+```yaml
+# browser → terminal
+- capture: { selector: "h1", to: page_title }        # DOM element innerText
+- capture: { eval: "document.title", to: tab_title }  # JS expression
+
+# terminal → browser
+- fill: { selector: "input[name=q]", paste_from: search_term }
+```
+
+`read -s` + `paste_from:` is the right pattern for secrets — the buffer is typed silently into the shell without echoing. Useful for realistic "grab the pod name, use it in the next command" demos:
 
 ```yaml
 - type: terminal
