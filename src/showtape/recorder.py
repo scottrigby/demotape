@@ -16,7 +16,6 @@ import re
 import shutil
 import subprocess
 import sys
-import threading
 import time
 import wave
 from pathlib import Path
@@ -257,42 +256,24 @@ def estimate_browser_ms(actions):
     return total + 500
 
 
-class _ScreenshotRecorder:
-    """Captures page screenshots at a fixed fps in a background thread.
+def _capture_frames(page, frames: list, duration_ms: float, fps: int = FPS):
+    """Capture screenshots from page at fps for duration_ms, appending to frames.
 
-    Playwright's sync API is thread-safe — screenshot calls from this thread
-    are dispatched through the same event loop as the main thread's actions.
+    Runs synchronously in the main thread — Playwright's sync API uses greenlets
+    that cannot be called from background threads.
     """
-
-    def __init__(self, page, fps=FPS):
-        self._page = page
-        self._interval = 1.0 / fps
-        self._frames: list[bytes] = []
-        self._running = False
-        self._thread: threading.Thread | None = None
-
-    def start(self):
-        self._running = True
-        self._thread = threading.Thread(target=self._run, daemon=True)
-        self._thread.start()
-
-    def stop(self) -> list[bytes]:
-        self._running = False
-        if self._thread:
-            self._thread.join(timeout=5.0)
-        return self._frames
-
-    def _run(self):
-        while self._running:
-            t = time.monotonic()
-            try:
-                self._frames.append(self._page.screenshot(type="png"))
-            except Exception:
-                pass
-            elapsed = time.monotonic() - t
-            sleep = self._interval - elapsed
-            if sleep > 0:
-                time.sleep(sleep)
+    n = max(1, int(duration_ms / 1000 * fps))
+    interval = (duration_ms / 1000) / n
+    for _ in range(n):
+        t = time.monotonic()
+        try:
+            frames.append(page.screenshot(type="png"))
+        except Exception:
+            pass
+        elapsed = time.monotonic() - t
+        sleep = interval - elapsed
+        if sleep > 0:
+            time.sleep(sleep)
 
 
 def _frames_to_mp4(frames: list[bytes], output_path: Path, dims: tuple,
@@ -484,37 +465,41 @@ def _run_browser_session(pane, dims, target_ms=None, record=True, video_dir=None
 
 
 def _record_live_browser_pane(pane, target_ms, dims, video_dir, warmup_ms=0):
-    """Record a live-session browser pane via screenshot capture.
+    """Record a live-session browser pane via sequential screenshot capture.
 
-    The Playwright context stays open across steps so the page's full state
-    (URL, scroll, sessionStorage, JS timers, form values) is preserved without
-    re-navigation.
+    Screenshots are taken in the main thread (Playwright's sync API cannot be
+    called from background threads — it uses greenlets tied to the calling thread).
+    A burst of frames is captured after each action settles, then the remaining
+    step duration is filled with frames of the final page state.
     """
     info = _live_browsers[pane["session"]]
     page = info["page"]
-
-    # Resize viewport to match this step's pane dimensions.
     page.set_viewport_size({"width": dims[0], "height": dims[1]})
 
-    # Capture screenshots at FPS while actions run.
-    recorder = _ScreenshotRecorder(page, fps=FPS)
-    recorder.start()
-
+    frames: list[bytes] = []
+    actions = pane.get("actions") or []
     start = time.monotonic()
-    try:
-        for action in pane.get("actions") or []:
-            run_browser_action(page, action)
-    except Exception as e:
-        print(f"  ! browser action error: {e}", file=sys.stderr)
 
+    # Capture a warmup burst first (hidden via skip_frames later).
+    if warmup_ms:
+        _capture_frames(page, frames, warmup_ms)
+
+    # Per-action: run then capture a short post-action burst so transitions
+    # (scroll, navigation result, form fills) are visible in the recording.
+    POST_ACTION_MS = 300   # frames to capture after each action settles
+    for action in actions:
+        try:
+            run_browser_action(page, action)
+        except Exception as e:
+            print(f"  ! browser action error: {e}", file=sys.stderr)
+        _capture_frames(page, frames, POST_ACTION_MS)
+
+    # Fill remaining step duration with frames of the final page state.
     elapsed_ms = int((time.monotonic() - start) * 1000)
     remaining = target_ms + warmup_ms - elapsed_ms
     if remaining > 0:
-        page.wait_for_timeout(remaining)
+        _capture_frames(page, frames, remaining)
 
-    frames = recorder.stop()
-
-    # Encode, skipping warmup frames so the white-canvas load is hidden.
     skip = int(warmup_ms / 1000 * FPS)
     out_path = video_dir / "recording.mp4"
     _frames_to_mp4(frames, out_path, dims, fps=FPS, skip_frames=skip)
