@@ -430,12 +430,12 @@ def vhs_type_line(s: str) -> str:
     return f'Type "{s}"'
 
 
-def _tape_header(output_mp4, dims):
+def _tape_header(output_mp4, dims, font_size):
     return [
         f'Output "{output_mp4}"',
         f"Set Width {dims[0]}",
         f"Set Height {dims[1]}",
-        f"Set FontSize {_SESSION_FONT_SIZE}",
+        f"Set FontSize {font_size}",
         f"Set TypingSpeed {DEFAULT_TYPING_SPEED_MS}ms",
         'Set Theme "Dracula"',
         "Set Padding 30",
@@ -443,9 +443,9 @@ def _tape_header(output_mp4, dims):
     ]
 
 
-def compile_tape(actions, target_ms, output_mp4, dims):
+def compile_tape(actions, target_ms, output_mp4, dims, font_size):
     """Tape for a single per-step terminal pane (no session continuity)."""
-    lines = _tape_header(output_mp4, dims)
+    lines = _tape_header(output_mp4, dims, font_size)
     action_lines, used_ms = _emit_terminal_actions(actions)
     lines.extend(action_lines)
     remaining = target_ms - used_ms
@@ -454,11 +454,11 @@ def compile_tape(actions, target_ms, output_mp4, dims):
     return "\n".join(lines) + "\n"
 
 
-def record_terminal_pane(pane, target_ms, dims, work_dir, key):
+def record_terminal_pane(pane, target_ms, dims, work_dir, key, font_size):
     work_dir.mkdir(parents=True, exist_ok=True)
     tape_path = work_dir / f"{key}.tape"
     out_path = (work_dir / f"{key}.mp4").resolve()
-    tape_path.write_text(compile_tape(pane.get("actions", []), target_ms, out_path, dims))
+    tape_path.write_text(compile_tape(pane.get("actions", []), target_ms, out_path, dims, font_size))
     subprocess.run(["vhs", str(tape_path)], check=True)
     return out_path
 
@@ -476,10 +476,9 @@ def record_terminal_pane(pane, target_ms, dims, work_dir, key):
 # Commands run once (safe for write-ops); different steps can use different
 # viewport dims for the same session.
 #
-# Font size used for all terminal panes (both plain and session).
-# Shared so every terminal in a demo has a consistent visual weight.
-# Configurable via the top-level `terminal_font_size:` YAML field (task #10).
-_SESSION_FONT_SIZE = 16
+# Default font size for all terminal panes (plain and session).
+# Override per-demo with the top-level `terminal_font_size:` YAML field.
+DEFAULT_TERMINAL_FONT_SIZE = 18
 
 # Monospace char width / line-height ratios for font → grid-size math.
 # Calibrated for JetBrains Mono (VHS default); ≤5% error at typical sizes.
@@ -523,7 +522,7 @@ def _unique_session_dims(occurrences):
     return seen
 
 
-def _compute_session_geometry(unique_dims, padding=30):
+def _compute_session_geometry(unique_dims, font_size, padding=30):
     """Return (cols, rows) for the initial tmux session size.
 
     Uses the smallest dim so the session starts at a safe minimum. With
@@ -535,8 +534,8 @@ def _compute_session_geometry(unique_dims, padding=30):
     for (w, h) in unique_dims:
         inner_w = max(1, w - 2 * padding)
         inner_h = max(1, h - 2 * padding)
-        cols = max(40, int(inner_w / (_SESSION_FONT_SIZE * _CHAR_WIDTH_RATIO)))
-        rows = max(8, int(inner_h / (_SESSION_FONT_SIZE * _LINE_HEIGHT_RATIO)))
+        cols = max(40, int(inner_w / (font_size * _CHAR_WIDTH_RATIO)))
+        rows = max(8, int(inner_h / (font_size * _LINE_HEIGHT_RATIO)))
         min_cols = min(min_cols, cols)
         min_rows = min(min_rows, rows)
     return min_cols, min_rows
@@ -598,17 +597,17 @@ def _drive_actions_via_tmux(tmux_sid, actions):
             time.sleep(int(a["sleep_ms"]) / 1000)
 
 
-def _setup_sessions(step_plans):
+def _setup_sessions(step_plans, font_size):
     """Start one tmux session per unique session: <id> found in step_plans.
 
-    Returns {sid: (tmux_sid, font_map)} where font_map is {dims: font_size}.
+    Returns {sid: tmux_sid}.
     Call _teardown_sessions() when rendering is complete (or on error).
     """
     sessions = _collect_terminal_sessions(step_plans)
     result = {}
     for sid, occurrences in sessions.items():
         unique_dims = _unique_session_dims(occurrences)
-        cols, rows = _compute_session_geometry(unique_dims)
+        cols, rows = _compute_session_geometry(unique_dims, font_size)
         tmux_sid = f"st_{sid}"
         # LC_ALL=C avoids "cannot change locale" warnings from bash startup.
         # /bin/bash keeps the demo shell predictable — no zsh/oh-my-zsh prompt
@@ -628,7 +627,7 @@ def _setup_sessions(step_plans):
         )
         result[sid] = tmux_sid
         dim_str = ", ".join(f"{w}x{h}" for (w, h) in unique_dims)
-        print(f"  session '{sid}' → tmux '{tmux_sid}' {cols}x{rows} font={_SESSION_FONT_SIZE}px ({dim_str})")
+        print(f"  session '{sid}' → tmux '{tmux_sid}' {cols}x{rows} font={font_size}px ({dim_str})")
     return result
 
 
@@ -638,7 +637,7 @@ def _teardown_sessions(session_map):
         subprocess.run(["tmux", "kill-session", "-t", tmux_sid], capture_output=True)
 
 
-def record_terminal_session_pane(pane, target_ms, dims, work_dir, key, tmux_sid):
+def record_terminal_session_pane(pane, target_ms, dims, work_dir, key, tmux_sid, font_size):
     """Record one step of a session terminal pane.
 
     Attaches a fresh VHS client to the live tmux session, drives this step's
@@ -653,7 +652,7 @@ def record_terminal_session_pane(pane, target_ms, dims, work_dir, key, tmux_sid)
         f'Output "{out_path}"',
         f"Set Width {w}",
         f"Set Height {h}",
-        f"Set FontSize {_SESSION_FONT_SIZE}",
+        f"Set FontSize {font_size}",
         "Set TypingSpeed 1ms",
         'Set Theme "Dracula"',
         "Set Padding 30",
@@ -723,6 +722,7 @@ def render(yaml_path, out=None, work_dir=None, voice_model=None, keep_work=False
     output_w, output_h = res["w"], res["h"]
     default_voice = spec.get("voice", 0)
     pronunciations = spec.get("pronunciations") or {}
+    font_size = int(spec.get("terminal_font_size", DEFAULT_TERMINAL_FONT_SIZE))
 
     out_path = Path(out or Path.cwd() / "out" / f"{yaml_path.stem}.mp4").resolve()
     work = Path(work_dir or Path.cwd() / ".showtape-work").resolve()
@@ -790,7 +790,7 @@ def render(yaml_path, out=None, work_dir=None, voice_model=None, keep_work=False
 
     # ---- Pass 2: start tmux sessions for all session: <id> panes ----
     print("\n=== Starting tmux sessions ===")
-    session_map = _setup_sessions(step_plans)
+    session_map = _setup_sessions(step_plans, font_size)
 
     # ---- Pass 3: record panes and composite, step by step ----
     # Each step's panes are recorded in sequence; all pane recordings complete
@@ -817,12 +817,12 @@ def render(yaml_path, out=None, work_dir=None, voice_model=None, keep_work=False
                     v = record_terminal_session_pane(
                         pane, step_ms, dims,
                         work / "panes", f"{i}-{j}-sess",
-                        tmux_sid,
+                        tmux_sid, font_size,
                     )
                     sess_label = f" session={sid_term} @ {dims[0]}x{dims[1]}"
                 else:
                     v = record_terminal_pane(pane, step_ms, dims,
-                                             work / "panes", f"{i}-{j}-term")
+                                             work / "panes", f"{i}-{j}-term", font_size)
                     sess_label = ""
                 pane_videos.append(v)
                 print(f"  pane[{j}] {t}{sess_label} {dims} → {v.name}")
