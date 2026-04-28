@@ -525,25 +525,22 @@ def _unique_session_dims(occurrences):
 
 
 def _compute_session_geometry(unique_dims, padding=30):
-    """Return (cols, rows) for the tmux session using the fixed session font.
+    """Return (cols, rows) for the initial tmux session size.
 
-    Uses the natural terminal grid for the LARGEST dim across all the
-    session's appearances. This prevents tmux from filling smaller-viewport
-    steps with dots (tmux only fills with dots when the session is smaller
-    than the client; if the session is larger, the client shows a clean
-    sub-view of the session content). Steps with smaller viewports see the
-    leftmost portion of the session — content is never falsely wrapped by the
-    shell, though very long lines may be clipped at the right edge.
+    Uses the smallest dim so the session starts at a safe minimum. With
+    window-size latest, tmux auto-resizes to each attaching client's
+    natural grid, so every step's commands run at the correct column count
+    for that step's viewport — no manual resize needed.
     """
-    max_cols, max_rows = 0, 0
+    min_cols, min_rows = 10000, 10000
     for (w, h) in unique_dims:
         inner_w = max(1, w - 2 * padding)
         inner_h = max(1, h - 2 * padding)
         cols = max(40, int(inner_w / (_SESSION_FONT_SIZE * _CHAR_WIDTH_RATIO)))
         rows = max(8, int(inner_h / (_SESSION_FONT_SIZE * _LINE_HEIGHT_RATIO)))
-        max_cols = max(max_cols, cols)
-        max_rows = max(max_rows, rows)
-    return max_cols, max_rows
+        min_cols = min(min_cols, cols)
+        min_rows = min(min_rows, rows)
+    return min_cols, min_rows
 
 
 def _wait_for_tmux_clients(tmux_sid, n, timeout_s=20.0):
@@ -622,8 +619,12 @@ def _setup_sessions(step_plans):
              "-x", str(cols), "-y", str(rows), "-e", "LC_ALL=C", "/bin/bash"],
             check=True,
         )
+        # window-size latest: tmux auto-resizes the window to each attaching
+        # client's natural grid. Every step's commands run at the correct
+        # column count for that step's viewport. No dots (window always
+        # matches the client), no manual resize needed per step.
         subprocess.run(
-            ["tmux", "set-option", "-t", tmux_sid, "window-size", "manual"],
+            ["tmux", "set-option", "-t", tmux_sid, "window-size", "latest"],
             check=True, capture_output=True,
         )
         result[sid] = tmux_sid
