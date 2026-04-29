@@ -1043,10 +1043,20 @@ def _load_dotenv(directory: Path):
         line = line.strip()
         if not line or line.startswith("#"):
             continue
-        if "=" in line:
-            key, _, val = line.partition("=")
-            val = val.strip().strip('"').strip("'")
-            os.environ.setdefault(key.strip(), val)
+        if "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        key = key.strip()
+        val = val.strip()
+        # Strip matching outer quotes (preserves inner content literally —
+        # escape sequences like \n are NOT interpreted).
+        if (val.startswith('"') and val.endswith('"')) or \
+           (val.startswith("'") and val.endswith("'")):
+            val = val[1:-1]
+        else:
+            # Unquoted: strip inline comment (# preceded by whitespace).
+            val = re.sub(r'\s+#.*$', '', val)
+        os.environ.setdefault(key, val)
 
 
 def _substitute_env_vars(obj):
