@@ -1,0 +1,63 @@
+title: env-vars-demo
+resolution: { w: 1920, h: 1080 }
+speaker: 0
+
+# How environment variable substitution works in showtape:
+#
+#   ${VAR_NAME}          required — showtape errors with a clear message if unset
+#   ${VAR_NAME:-default} optional — uses the default value if VAR_NAME is not set
+#
+# Substitution applies to every string in the YAML — narration, action values,
+# selectors, URLs — anything. The .env file in the same directory as the YAML is
+# loaded automatically (shell environment takes precedence, so CI secrets always
+# win over .env). Add .env to .gitignore and keep ${VAR} placeholders in the
+# committed YAML so credentials never land in git.
+
+pronunciations:
+  showtape: "show tape"
+
+steps:
+  - id: system-vars
+    narration: "Any environment variable works in any YAML string. These come from the shell — no dot-env file needed."
+    end_buffer_ms: 1000
+    panes:
+      - type: terminal
+        actions:
+          - type: "echo 'HOME  = ${HOME}'"
+          - enter: true
+          - sleep_ms: 300
+          - type: "echo 'SHELL = ${SHELL}'"
+          - enter: true
+          - sleep_ms: 300
+          - type: "echo 'PWD   = ${PWD}'"
+          - enter: true
+
+  - id: dotenv-file
+    narration: "Deploying ${DEMO_PROJECT} to ${DEMO_ENVIRONMENT}. These values come from the dot-env file next to this YAML — not hardcoded, not in git."
+    end_buffer_ms: 1000
+    panes:
+      - type: terminal
+        actions:
+          - type: "echo 'Project:     ${DEMO_PROJECT}'"
+          - enter: true
+          - sleep_ms: 300
+          - type: "echo 'Environment: ${DEMO_ENVIRONMENT}'"
+          - enter: true
+          - sleep_ms: 300
+          - type: "echo 'Registry:    ${DEMO_REGISTRY}'"
+          - enter: true
+
+  - id: defaults
+    narration: "Variables with defaults render fine even when the variable is not set. Useful for optional config with sensible fallbacks."
+    end_buffer_ms: 1000
+    panes:
+      - type: terminal
+        actions:
+          - type: "echo 'Region:    ${AWS_REGION:-us-east-1}'"
+          - enter: true
+          - sleep_ms: 300
+          - type: "echo 'Namespace: ${K8S_NAMESPACE:-default}'"
+          - enter: true
+          - sleep_ms: 300
+          - type: "echo 'Replicas:  ${UNLIKELY_TO_BE_SET:-3}'"
+          - enter: true

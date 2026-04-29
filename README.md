@@ -176,6 +176,8 @@ DEMO_PASSWORD=hunter2
 
 `${VAR_NAME}` raises a clear error if the variable is not set. `${VAR_NAME:-default}` falls back to a default instead. Shell environment takes precedence over `.env` so CI secrets override local `.env` automatically.
 
+Substitution applies to every string in the YAML — narration, action values, selectors, URLs. Copy `demos/.env.example` to `demos/.env`, add `.env` to `.gitignore`, and your credentials stay out of git. See `demos/env-vars.yaml` for a worked example.
+
 **Stick to ASCII in `type:`/`paste:` action strings.** Smart quotes, em dashes (`—`), and other Unicode punctuation are sent through VHS → ttyd → bash readline as multi-byte UTF-8 sequences, and at least some byte values get interpreted by readline as command-line edit operations (transposing words, killing the line, etc.). Use plain `-` instead of `—`, plain `'`/`"` instead of curly quotes. Narration text (which goes through Piper, not the shell) is fine with any Unicode.
 
 ## CLI
