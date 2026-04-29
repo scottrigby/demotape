@@ -160,6 +160,22 @@ Buffers persist across steps within one render; a `capture:` in step 2 is availa
 
 **Voice model auto-detection.** If `voice_model:` is omitted and exactly one `.onnx` model is installed across all search paths, it is used automatically. For multi-speaker models (e.g. `en_US-libritts_r-medium` has 904 speakers), `speaker:` selects the speaker index (default 0). Single-speaker models ignore `speaker:`. Both fields are optional when only one model and one speaker exist.
 
+**Environment variable substitution.** YAML files are meant to be committed to git — credentials don't belong in them. Use `${VAR_NAME}` placeholders instead; showtape substitutes them at render time from the shell environment or a `.env` file next to the YAML:
+
+```yaml
+# demos/signup-flow.yaml  ← safe to commit
+- fill: { selector: "[name=email]",    value: "${DEMO_EMAIL}" }
+- fill: { selector: "[name=password]", value: "${DEMO_PASSWORD}" }
+```
+
+```bash
+# demos/.env  ← gitignored
+DEMO_EMAIL=user@example.com
+DEMO_PASSWORD=hunter2
+```
+
+`${VAR_NAME}` raises a clear error if the variable is not set. `${VAR_NAME:-default}` falls back to a default instead. Shell environment takes precedence over `.env` so CI secrets override local `.env` automatically.
+
 **Stick to ASCII in `type:`/`paste:` action strings.** Smart quotes, em dashes (`—`), and other Unicode punctuation are sent through VHS → ttyd → bash readline as multi-byte UTF-8 sequences, and at least some byte values get interpreted by readline as command-line edit operations (transposing words, killing the line, etc.). Use plain `-` instead of `—`, plain `'`/`"` instead of curly quotes. Narration text (which goes through Piper, not the shell) is fine with any Unicode.
 
 ## CLI

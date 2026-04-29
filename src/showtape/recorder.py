@@ -1029,13 +1029,62 @@ def concat_clips(clip_paths, out_path, work_dir):
 
 # ---------- Public API ----------
 
+def _load_dotenv(directory: Path):
+    """Load a .env file from directory into os.environ (shell env takes precedence).
+
+    Supports KEY=value, KEY="value", KEY='value'. Lines starting with # are
+    comments. The .env file is gitignored by convention; the YAML file itself
+    stays committable with ${VAR} placeholders instead of literal credentials.
+    """
+    env_file = directory / ".env"
+    if not env_file.exists():
+        return
+    for line in env_file.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" in line:
+            key, _, val = line.partition("=")
+            val = val.strip().strip('"').strip("'")
+            os.environ.setdefault(key.strip(), val)
+
+
+def _substitute_env_vars(obj):
+    """Recursively substitute ${VAR} and ${VAR:-default} in string YAML values.
+
+    ${VAR}          — required; raises ValueError if VAR is not set
+    ${VAR:-default} — optional; uses default if VAR is not set
+
+    Applied after YAML parsing so YAML structure is never affected by the
+    substituted content. Credentials stay out of committed YAML files.
+    """
+    if isinstance(obj, str):
+        def replace(m):
+            name, _, default = m.group(1).partition(":-")
+            if name in os.environ:
+                return os.environ[name]
+            if default:
+                return default
+            raise ValueError(
+                f"YAML references ${{{name}}} but that environment variable is not set.\n"
+                f"Set it in the shell or in a .env file next to the YAML file."
+            )
+        return re.sub(r"\$\{([^}]+)\}", replace, obj)
+    if isinstance(obj, dict):
+        return {k: _substitute_env_vars(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_substitute_env_vars(v) for v in obj]
+    return obj
+
+
 def render(yaml_path, out=None, work_dir=None, voice_model=None, keep_work=False):
     """Render a demo YAML to MP4. Paths default to cwd-relative.
 
     Returns the absolute path of the produced MP4.
     """
     yaml_path = Path(yaml_path).resolve()
-    spec = yaml.safe_load(yaml_path.read_text())
+    _load_dotenv(yaml_path.parent)
+    spec = _substitute_env_vars(yaml.safe_load(yaml_path.read_text()))
     res = spec.get("resolution", {"w": 1920, "h": 1080})
     output_w, output_h = res["w"], res["h"]
     default_voice = int(spec.get("speaker", 0))
