@@ -15,6 +15,7 @@ speaker: 0
 
 pronunciations:
   showtape: "show tape"
+  dot-env: "dot en-vee"   # .env files: prevent "dot ten" mispronunciation
 
 steps:
   - id: system-vars
@@ -22,14 +23,18 @@ steps:
     end_buffer_ms: 1000
     panes:
       - type: terminal
+        session: shell
         actions:
-          - type: "echo 'HOME  = ${HOME}'"
+          - paste: "grep -E 'HOME|SHELL|PWD' demos/env-vars.yaml"
           - enter: true
-          - sleep_ms: 300
-          - type: "echo 'SHELL = ${SHELL}'"
+          - sleep_ms: 800
+          - type: "echo 'HOME: ${HOME}'"
           - enter: true
-          - sleep_ms: 300
-          - type: "echo 'PWD   = ${PWD}'"
+          - sleep_ms: 200
+          - type: "echo 'SHELL: ${SHELL}'"
+          - enter: true
+          - sleep_ms: 200
+          - type: "echo 'PWD: ${PWD}'"
           - enter: true
 
   - id: dotenv-file
@@ -37,27 +42,35 @@ steps:
     end_buffer_ms: 1000
     panes:
       - type: terminal
+        session: shell
         actions:
-          - type: "echo 'Project:     ${DEMO_PROJECT}'"
+          - paste: "grep -E 'DEMO_' demos/env-vars.yaml"
           - enter: true
-          - sleep_ms: 300
-          - type: "echo 'Environment: ${DEMO_ENVIRONMENT}'"
+          - sleep_ms: 800
+          - type: "echo 'DEMO_PROJECT: ${DEMO_PROJECT}'"
           - enter: true
-          - sleep_ms: 300
-          - type: "echo 'Registry:    ${DEMO_REGISTRY}'"
+          - sleep_ms: 200
+          - type: "echo 'DEMO_ENVIRONMENT: ${DEMO_ENVIRONMENT}'"
+          - enter: true
+          - sleep_ms: 200
+          - type: "echo 'DEMO_REGISTRY: ${DEMO_REGISTRY}'"
           - enter: true
 
   - id: defaults
-    narration: "Variables with defaults render fine even when the variable is not set. Useful for optional config with sensible fallbacks."
-    end_buffer_ms: 1000
+    narration: "Variables with defaults render fine even when unset. The YAML shows the fallback syntax — the terminal shows what was actually used."
+    end_buffer_ms: 1500
     panes:
       - type: terminal
+        session: shell
         actions:
-          - type: "echo 'Region:    ${AWS_REGION:-us-east-1}'"
+          - paste: "grep -E 'AWS_REGION|K8S_NAMESPACE|UNLIKELY' demos/env-vars.yaml"
           - enter: true
-          - sleep_ms: 300
-          - type: "echo 'Namespace: ${K8S_NAMESPACE:-default}'"
+          - sleep_ms: 800
+          - type: "echo 'AWS_REGION: ${AWS_REGION:-us-east-1}'"
           - enter: true
-          - sleep_ms: 300
-          - type: "echo 'Replicas:  ${UNLIKELY_TO_BE_SET:-3}'"
+          - sleep_ms: 200
+          - type: "echo 'K8S_NAMESPACE: ${K8S_NAMESPACE:-default}'"
+          - enter: true
+          - sleep_ms: 200
+          - type: "echo 'UNLIKELY_TO_BE_SET: ${UNLIKELY_TO_BE_SET:-three}'"
           - enter: true
