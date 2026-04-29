@@ -1,8 +1,8 @@
-"""showtape CLI.
+"""demotape CLI.
 
 Subcommands:
-    showtape render <yaml> [--out PATH] [--work-dir DIR] [--voice-model NAME]
-    showtape fetch-voice <name> [--dir DIR]
+    demotape render <yaml> [--out PATH] [--work-dir DIR] [--voice-model NAME]
+    demotape fetch-voice <name> [--dir DIR]
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ import sys
 import urllib.request
 from pathlib import Path
 
-from showtape import __version__
+from demotape import __version__
 
 HF_BASE = "https://huggingface.co/rhasspy/piper-voices/resolve/main"
 
@@ -27,8 +27,8 @@ KNOWN_VOICES = {
 
 
 def cmd_render(args):
-    # Imported lazily so `showtape --version` doesn't load Playwright/Piper.
-    from showtape.recorder import render
+    # Imported lazily so `demotape --version` doesn't load Playwright/Piper.
+    from demotape.recorder import render
     render(
         args.yaml_path,
         out=args.out,
@@ -65,9 +65,9 @@ def cmd_fetch_voice(args):
 
 
 def build_parser():
-    p = argparse.ArgumentParser(prog="showtape",
+    p = argparse.ArgumentParser(prog="demotape",
                                 description="Multi-pane in-container demo recorder.")
-    p.add_argument("--version", action="version", version=f"showtape {__version__}")
+    p.add_argument("--version", action="version", version=f"demotape {__version__}")
     sub = p.add_subparsers(dest="command", required=True)
 
     r = sub.add_parser("render", help="Render a YAML demo spec to MP4.")
@@ -75,7 +75,7 @@ def build_parser():
     r.add_argument("--out", default=None,
                    help="Output MP4 path. Default: ./out/<yaml-stem>.mp4")
     r.add_argument("--work-dir", default=None,
-                   help="Scratch dir for per-step intermediates. Default: ./.showtape-work")
+                   help="Scratch dir for per-step intermediates. Default: ./.demotape-work")
     r.add_argument("--voice-model", default=None,
                    help="Piper voice model name (looked up under voices/) or absolute path.")
     r.add_argument("--keep-work", action="store_true",

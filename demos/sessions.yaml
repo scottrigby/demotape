@@ -12,7 +12,7 @@ speaker: 0
 # has time to finish before the pane content is snapshotted.
 
 pronunciations:
-  showtape: "show tape"
+  demotape: "demo tape"
   DOM: "Dom"
 
 steps:
@@ -24,7 +24,7 @@ steps:
       - type: browser
         session: web
         actions:
-          - goto: "https://github.com/scottrigby/showtape"
+          - goto: "https://github.com/scottrigby/demotape"
       - type: terminal
         session: shell-A
         actions:
@@ -44,7 +44,7 @@ steps:
       - type: browser
         session: web
         actions:
-          - goto: "https://github.com/scottrigby/showtape/blob/main/README.md"
+          - goto: "https://github.com/scottrigby/demotape/blob/main/README.md"
       - type: terminal
         session: shell-A
         actions:
@@ -70,7 +70,7 @@ steps:
       - type: browser
         session: web
         actions:
-          - goto: "https://github.com/scottrigby/showtape"
+          - goto: "https://github.com/scottrigby/demotape"
       - type: terminal
         session: shell-A
         actions:

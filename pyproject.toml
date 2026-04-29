@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "showtape"
+name = "demotape"
 version = "0.9.0"
 description = "Multi-pane in-container demo recorder: declarative YAML → narrated MP4"
 readme = "README.md"
@@ -24,11 +24,11 @@ dependencies = [
 ]
 
 [project.scripts]
-showtape = "showtape.cli:main"
+demotape = "demotape.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/scottrigby/showtape"
-Issues = "https://github.com/scottrigby/showtape/issues"
+Homepage = "https://github.com/scottrigby/demotape"
+Issues = "https://github.com/scottrigby/demotape/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/showtape"]
+packages = ["src/demotape"]

@@ -4,7 +4,7 @@
 # Runs as root during image build, AFTER the dependsOn features (python,
 # ffmpeg, apt-packages) have already populated their pieces.
 #
-# Installs: ttyd + VHS binaries, the `showtape` Python package, Playwright's
+# Installs: ttyd + VHS binaries, the `demotape` Python package, Playwright's
 # Chromium, and (optionally) a pre-fetched Piper voice model.
 
 set -euo pipefail
@@ -19,13 +19,13 @@ ARCH="$(uname -m)"
 case "$ARCH" in
   aarch64|arm64) VHS_ARCH="arm64";  TTYD_ARCH="aarch64" ;;
   x86_64)        VHS_ARCH="x86_64"; TTYD_ARCH="x86_64"  ;;
-  *) echo "showtape: unsupported architecture $ARCH" >&2; exit 1 ;;
+  *) echo "demotape: unsupported architecture $ARCH" >&2; exit 1 ;;
 esac
 
 # Python feature installs python at /usr/local/python/current; its bin dir
 # is on PATH for the user. We drop binaries there too so they're discovered.
 PYTHON_BIN="/usr/local/python/current/bin"
-SHARE_DIR="/usr/local/share/showtape"
+SHARE_DIR="/usr/local/share/demotape"
 VOICES_DIR="${SHARE_DIR}/voices"
 
 # Install Playwright browsers to a system-wide path so root (build time) and
@@ -46,7 +46,7 @@ TTYD_VERSION="1.7.7"
 
 # ---- VHS (terminal pane renderer) ----
 if ! command -v vhs >/dev/null 2>&1; then
-  echo "showtape: installing VHS v${VHS_VERSION} (${VHS_ARCH}) → ${PYTHON_BIN}/vhs"
+  echo "demotape: installing VHS v${VHS_VERSION} (${VHS_ARCH}) → ${PYTHON_BIN}/vhs"
   TMP="$(mktemp -d)"
   curl -fsSL "https://github.com/charmbracelet/vhs/releases/download/v${VHS_VERSION}/vhs_${VHS_VERSION}_Linux_${VHS_ARCH}.tar.gz" \
     | tar xz -C "$TMP"
@@ -56,19 +56,19 @@ fi
 
 # ---- ttyd (used internally by VHS) ----
 if ! command -v ttyd >/dev/null 2>&1; then
-  echo "showtape: installing ttyd ${TTYD_VERSION} (${TTYD_ARCH}) → ${PYTHON_BIN}/ttyd"
+  echo "demotape: installing ttyd ${TTYD_VERSION} (${TTYD_ARCH}) → ${PYTHON_BIN}/ttyd"
   curl -fsSL "https://github.com/tsl0922/ttyd/releases/download/${TTYD_VERSION}/ttyd.${TTYD_ARCH}" \
     -o "${PYTHON_BIN}/ttyd"
   chmod +x "${PYTHON_BIN}/ttyd"
 fi
 
-# ---- showtape Python package ----
-echo "showtape: installing showtape Python package (ref=${VERSION})"
-pip install --no-cache-dir "git+https://github.com/scottrigby/showtape@${VERSION}"
+# ---- demotape Python package ----
+echo "demotape: installing demotape Python package (ref=${VERSION})"
+pip install --no-cache-dir "git+https://github.com/scottrigby/demotape@${VERSION}"
 
 # ---- Playwright Chromium ----
 if [ "${INSTALLCHROMIUM}" = "true" ]; then
-  echo "showtape: installing Playwright Chromium → ${PLAYWRIGHT_BROWSERS_PATH}"
+  echo "demotape: installing Playwright Chromium → ${PLAYWRIGHT_BROWSERS_PATH}"
   # We're root here, so --with-deps would re-install apt deps already covered
   # by the apt-packages feature dependency. Skip --with-deps; trust the deps.
   playwright install chromium
@@ -82,22 +82,22 @@ if [ "${INSTALLCHROMIUM}" = "true" ]; then
     | tail -1 || true)"
   if [ -n "$PW_CHROME" ] && [ -x "$PW_CHROME" ]; then
     ln -sf "$PW_CHROME" "${PYTHON_BIN}/chromium"
-    echo "showtape: symlinked ${PW_CHROME} → ${PYTHON_BIN}/chromium (for VHS/go-rod)"
+    echo "demotape: symlinked ${PW_CHROME} → ${PYTHON_BIN}/chromium (for VHS/go-rod)"
   else
-    echo "showtape: WARN — Playwright Chromium not found post-install; VHS may fail at runtime" >&2
+    echo "demotape: WARN — Playwright Chromium not found post-install; VHS may fail at runtime" >&2
   fi
 fi
 
 # ---- Pre-fetch voice model ----
 if [ -n "${VOICEMODEL}" ]; then
-  echo "showtape: pre-fetching voice model ${VOICEMODEL} → ${VOICES_DIR}"
-  showtape fetch-voice "${VOICEMODEL}" --dir "${VOICES_DIR}" || \
-    echo "showtape: WARN — voice pre-fetch failed; users can fetch later with \`showtape fetch-voice\`" >&2
+  echo "demotape: pre-fetching voice model ${VOICEMODEL} → ${VOICES_DIR}"
+  demotape fetch-voice "${VOICEMODEL}" --dir "${VOICES_DIR}" || \
+    echo "demotape: WARN — voice pre-fetch failed; users can fetch later with \`demotape fetch-voice\`" >&2
 fi
 
 # ---- Sanity-check installed binaries ----
-echo "showtape: install complete. Versions:"
-showtape --version
+echo "demotape: install complete. Versions:"
+demotape --version
 vhs --version
 ttyd --version | head -1
 ffmpeg -version | head -1

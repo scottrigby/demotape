@@ -64,8 +64,8 @@ def voice_model_search_paths():
     """Lookup chain for Piper voice models (most specific to most general)."""
     return [
         Path.cwd() / "voices",
-        Path("/usr/local/share/showtape/voices"),
-        Path.home() / ".cache" / "showtape" / "voices",
+        Path("/usr/local/share/demotape/voices"),
+        Path.home() / ".cache" / "demotape" / "voices",
     ]
 
 
@@ -112,7 +112,7 @@ def resolve_voice_model(voice_model: str | None) -> Path:
     installed = _find_installed_voice_models()
     hint = (f"Installed models: {', '.join(p.stem for p in installed)}"
             if installed else
-            f"Run `showtape fetch-voice {DEFAULT_VOICE_MODEL_NAME}` to install.")
+            f"Run `demotape fetch-voice {DEFAULT_VOICE_MODEL_NAME}` to install.")
     raise FileNotFoundError(
         f"voice model {voice_model!r} not found. Searched:\n  {searched}\n{hint}"
     )
@@ -128,7 +128,7 @@ def apply_pronunciations(text: str, pronunciations: dict | None) -> str:
     another (handled by sorting). Empty/None map → text returned unchanged.
 
     Example:
-        apply_pronunciations("Deploy showtape today", {"showtape": "show tape"})
+        apply_pronunciations("Deploy demotape today", {"demotape": "show tape"})
         → "Deploy show tape today"
     """
     if not pronunciations:
@@ -1103,7 +1103,7 @@ def render(yaml_path, out=None, work_dir=None, voice_model=None, keep_work=False
     font_size = int(spec.get("terminal_font_size", DEFAULT_TERMINAL_FONT_SIZE))
 
     out_path = Path(out or Path.cwd() / "out" / f"{yaml_path.stem}.mp4").resolve()
-    work = Path(work_dir or Path.cwd() / ".showtape-work").resolve()
+    work = Path(work_dir or Path.cwd() / ".demotape-work").resolve()
     if work.exists() and not keep_work:
         shutil.rmtree(work)
     work.mkdir(parents=True, exist_ok=True)

@@ -14,7 +14,7 @@ speaker: 0
 #   5. Replace terminal with architecture session (right): still scrolled too.
 
 pronunciations:
-  showtape: "show tape"
+  demotape: "demo tape"
   ARCHITECTURE: "architecture"
 
 steps:
@@ -26,11 +26,11 @@ steps:
       - type: browser
         session: github
         actions:
-          - goto: "https://github.com/scottrigby/showtape"
+          - goto: "https://github.com/scottrigby/demotape"
       - type: browser
         session: arch
         actions:
-          - goto: "https://github.com/scottrigby/showtape/blob/main/ARCHITECTURE.md"
+          - goto: "https://github.com/scottrigby/demotape/blob/main/ARCHITECTURE.md"
 
   - id: scroll-to-headings
     narration: "In the GitHub session we scroll to the devcontainer section. In the architecture docs we scroll to the pipeline section."

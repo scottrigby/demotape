@@ -7,19 +7,19 @@ A pipeline that turns a YAML demo spec into a narrated multi-pane MP4 (1–4 pan
 ### Code
 | File | Purpose |
 |---|---|
-| `src/showtape/cli.py` | argparse-based CLI: `showtape render <yaml>`, `showtape fetch-voice <name>`. Lazy-imports `recorder` so `--version` doesn't pull Piper/Playwright. |
-| `src/showtape/recorder.py` | The whole rendering pipeline. ~1100 lines. Reads YAML, drives Piper / Playwright / VHS / FFmpeg in sequence, writes the final MP4. |
-| `src/showtape/__init__.py` | Reads `__version__` via `importlib.metadata` so it always tracks `pyproject.toml`. |
+| `src/demotape/cli.py` | argparse-based CLI: `demotape render <yaml>`, `demotape fetch-voice <name>`. Lazy-imports `recorder` so `--version` doesn't pull Piper/Playwright. |
+| `src/demotape/recorder.py` | The whole rendering pipeline. ~1100 lines. Reads YAML, drives Piper / Playwright / VHS / FFmpeg in sequence, writes the final MP4. |
+| `src/demotape/__init__.py` | Reads `__version__` via `importlib.metadata` so it always tracks `pyproject.toml`. |
 
 ### Distribution
 | File | Purpose |
 |---|---|
-| `pyproject.toml` | Package metadata (PEP 621). Single source of truth for the showtape Python package version. Declares the `showtape` console script. |
-| `feature/showtape/devcontainer-feature.json` | Devcontainer feature manifest — options (`version`, `voiceModel`, `installChromium`), `dependsOn` other features, sets `containerEnv.PLAYWRIGHT_BROWSERS_PATH`. |
-| `feature/showtape/install.sh` | Runs as root at devcontainer build time, after the dependsOn features. Installs VHS + ttyd binaries, pip-installs `showtape` from the configured git ref, downloads Playwright Chromium to a system-wide path, symlinks Chromium onto PATH for VHS, pre-fetches a Piper voice. |
-| `.devcontainer/devcontainer.json` | Dev container for the repo *itself* — pulls the published showtape feature, then `pip install -e .` overrides the from-git install with the live source. |
+| `pyproject.toml` | Package metadata (PEP 621). Single source of truth for the demotape Python package version. Declares the `demotape` console script. |
+| `feature/demotape/devcontainer-feature.json` | Devcontainer feature manifest — options (`version`, `voiceModel`, `installChromium`), `dependsOn` other features, sets `containerEnv.PLAYWRIGHT_BROWSERS_PATH`. |
+| `feature/demotape/install.sh` | Runs as root at devcontainer build time, after the dependsOn features. Installs VHS + ttyd binaries, pip-installs `demotape` from the configured git ref, downloads Playwright Chromium to a system-wide path, symlinks Chromium onto PATH for VHS, pre-fetches a Piper voice. |
+| `.devcontainer/devcontainer.json` | Dev container for the repo *itself* — pulls the published demotape feature, then `pip install -e .` overrides the from-git install with the live source. |
 | `.github/workflows/release.yaml` | Triggered on git tag push (`v*`). Asserts that pyproject.toml + feature.json + tag all agree, publishes the OCI feature to ghcr.io, creates a GitHub Release. |
-| `scripts/bump-version.sh` | One-command sync of the two version fields (`pyproject.toml` + `feature/showtape/devcontainer-feature.json`). |
+| `scripts/bump-version.sh` | One-command sync of the two version fields (`pyproject.toml` + `feature/demotape/devcontainer-feature.json`). |
 
 ### Examples & generated
 | File | Purpose |
@@ -33,8 +33,8 @@ A pipeline that turns a YAML demo spec into a narrated multi-pane MP4 (1–4 pan
 | `demos/record-false.yaml` | `record: false` + `wait_ms` — invisible pause with running browser sessions. |
 | `demos/env-vars.yaml` | Environment variable substitution — `${VAR}`, `${VAR:-default}`, and `.env` file loading. |
 | `demos/.env` | Example `.env` used by env-vars.yaml (committed; non-sensitive). Doubles as a template — copy it next to your own YAML and fill in real values. |
-| `voices/` | Piper voice models (gitignored — fetch via `showtape fetch-voice`). |
-| `out/`, `.showtape-work/` | Generated artifacts (gitignored). |
+| `voices/` | Piper voice models (gitignored — fetch via `demotape fetch-voice`). |
+| `out/`, `.demotape-work/` | Generated artifacts (gitignored). |
 
 ## Pipeline
 
@@ -68,7 +68,7 @@ Each pane's WebM/MP4 is recorded at its exact final dimensions, so the composite
 
 ## Choices worth knowing
 
-- **Single source of truth for the package version: `pyproject.toml`.** `__init__.py` reads via `importlib.metadata`, so `showtape --version` always reflects the canonical value. The feature artifact's version (in `devcontainer-feature.json`) has to be written separately because the spec mandates it; `scripts/bump-version.sh` keeps both in sync, and CI asserts they match the git tag at release time.
+- **Single source of truth for the package version: `pyproject.toml`.** `__init__.py` reads via `importlib.metadata`, so `demotape --version` always reflects the canonical value. The feature artifact's version (in `devcontainer-feature.json`) has to be written separately because the spec mandates it; `scripts/bump-version.sh` keeps both in sync, and CI asserts they match the git tag at release time.
 - **Step duration is data-driven, narration is *one* contributor.** Step length = `max(narration, browser estimates, terminal estimates) + end_buffer_ms`. Visuals never get rate-changed; audio is padded with silence instead. Whichever stream is longest wins the step length.
 - **Per-step re-encode, then concat-copy.** Avoids the audio/video drift you get from concatenating WebMs with different keyframe alignment. Each clip ends up a uniform building block.
 - **Headless-only browser, no Xvfb.** Named-session browser panes capture screenshots from a live Playwright page; non-session panes use `record_video_dir`. Neither requires a display server.
@@ -82,19 +82,19 @@ Each pane's WebM/MP4 is recorded at its exact final dimensions, so the composite
 - **`pronunciations:` is plain substitution, not phoneme-aware.** Whole-word, case-insensitive find/replace on the narration text *before* Piper's phonemiser runs. Plain respellings (`Kubernetes: "kuber-NETT-eez"`) usually suffice; espeak inline IPA (`[[k_u:b@`net@s]]`) is supported as a fallback because the substitution is verbatim.
 - **VHS for the terminal pane.** Beats asciinema+agg (GIF-only, needs another transcode) and live xterm capture (fragile, needs Xvfb). VHS bundles its own go-rod-driven Chromium for headless terminal rendering — we shortcut that by symlinking Playwright's Chromium onto PATH so go-rod's PATH lookup finds it before falling back to its (often broken) downloader.
 - **Playwright browsers in a system-wide path.** The feature install.sh sets `PLAYWRIGHT_BROWSERS_PATH=/usr/local/share/playwright` so root (build time) and the unprivileged user (run time) read from the same place. `containerEnv` in the feature manifest makes the path stick at runtime without consumers having to set it.
-- **Two GHCR packages per release.** `ghcr.io/scottrigby/showtape/showtape` is the actual feature artifact; `ghcr.io/scottrigby/showtape` is collection metadata that feature-discovery tools (containers.dev) index. The duplicated `<repo>/<feature-id>` segment is the convention for single-feature repos — `devcontainer features publish` always appends the feature id after the namespace, and GHCR rejects bare `<owner>` namespace artifacts. `oras push` directly to the bare path is possible but abandons the upstream tooling for negligible gain.
+- **Two GHCR packages per release.** `ghcr.io/scottrigby/demotape/demotape` is the actual feature artifact; `ghcr.io/scottrigby/demotape` is collection metadata that feature-discovery tools (containers.dev) index. The duplicated `<repo>/<feature-id>` segment is the convention for single-feature repos — `devcontainer features publish` always appends the feature id after the namespace, and GHCR rejects bare `<owner>` namespace artifacts. `oras push` directly to the bare path is possible but abandons the upstream tooling for negligible gain.
 
 ## Operational layout (host vs container)
 
 ```
 host (Mac):
-  ~/code/.../showtape/                    repo working tree (this layout)
+  ~/code/.../demotape/                    repo working tree (this layout)
 
 container (any devcontainer host):
   /workspaces/<project>/                  consumer project's source mount
-  /usr/local/python/current/bin/          showtape, vhs, ttyd, chromium (symlink)
+  /usr/local/python/current/bin/          demotape, vhs, ttyd, chromium (symlink)
   /usr/local/share/playwright/            Chromium binary tree
-  /usr/local/share/showtape/voices/       pre-fetched Piper voices
+  /usr/local/share/demotape/voices/       pre-fetched Piper voices
 ```
 
-`showtape render` paths default to cwd-relative (`./out/`, `./.showtape-work/`), so the same CLI works in any project's workspace without configuration.
+`demotape render` paths default to cwd-relative (`./out/`, `./.demotape-work/`), so the same CLI works in any project's workspace without configuration.

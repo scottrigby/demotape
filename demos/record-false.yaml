@@ -21,7 +21,7 @@ steps:
       - type: browser
         session: web
         actions:
-          - goto: "https://github.com/scottrigby/showtape"
+          - goto: "https://github.com/scottrigby/demotape"
       - type: terminal
         session: shell
         actions:
@@ -43,7 +43,7 @@ steps:
       - type: browser
         session: web
         actions:
-          - goto: "https://github.com/scottrigby/showtape"   # same page, browser session restored
+          - goto: "https://github.com/scottrigby/demotape"   # same page, browser session restored
       - type: terminal
         session: shell
         actions:

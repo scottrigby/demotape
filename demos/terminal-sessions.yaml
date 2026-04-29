@@ -26,7 +26,7 @@ steps:
     panes:
       - type: browser
         actions:
-          - goto: "https://github.com/scottrigby/showtape"
+          - goto: "https://github.com/scottrigby/demotape"
       - type: terminal
         session: shell-A      # 960x540 (3-pane left, small slot)
         actions:
@@ -68,7 +68,7 @@ steps:
     panes:
       - type: browser
         actions:
-          - goto: "https://github.com/scottrigby/showtape"
+          - goto: "https://github.com/scottrigby/demotape"
       - type: terminal
         session: shell-A      # 960x540 — same dim as steps 0/1, scrollback unchanged
         actions: []

@@ -1,29 +1,29 @@
-// Development container for the showtape repo itself. Eats our own dog
+// Development container for the demotape repo itself. Eats our own dog
 // food: pulls the published feature for system deps (Playwright, VHS,
 // ttyd, FFmpeg, voice), then `pip install -e .` replaces the from-git
-// showtape install with the live source under src/.
+// demotape install with the live source under src/.
 //
 // Open this folder in VS Code with the Dev Containers extension, or:
 //   devcontainer up --workspace-folder .
-//   devcontainer exec --workspace-folder . showtape render demos/example.yaml
+//   devcontainer exec --workspace-folder . demotape render demos/example.yaml
 {
-  "name": "showtape dev",
+  "name": "demotape dev",
   "image": "mcr.microsoft.com/devcontainers/base:debian",
 
   "features": {
     // Pin to a release tag for reproducible dev environments.
-    "ghcr.io/scottrigby/showtape/showtape:0.9.0": {}
+    "ghcr.io/scottrigby/demotape/demotape:0.9.0": {}
   },
 
   // Persist large, version-stable downloads across container rebuilds.
   // Both volumes are write-once-read-many: same Chromium / voice across
-  // any showtape version sharing the same Playwright/voice file.
+  // any demotape version sharing the same Playwright/voice file.
   "mounts": [
-    "source=showtape-dev-playwright,target=/usr/local/share/playwright,type=volume",
-    "source=showtape-dev-voices,target=/usr/local/share/showtape/voices,type=volume"
+    "source=demotape-dev-playwright,target=/usr/local/share/playwright,type=volume",
+    "source=demotape-dev-voices,target=/usr/local/share/demotape/voices,type=volume"
   ],
 
-  // After the feature pip-installs showtape from main, replace it with the
+  // After the feature pip-installs demotape from main, replace it with the
   // live source so edits in src/ take effect without reinstalling.
-  "postCreateCommand": "pip install -e . --force-reinstall --no-deps && showtape --version"
+  "postCreateCommand": "pip install -e . --force-reinstall --no-deps && demotape --version"
 }

@@ -12,7 +12,7 @@ on:
     branches: [main]
     paths:
       - pyproject.toml
-      - feature/showtape/devcontainer-feature.json
+      - feature/demotape/devcontainer-feature.json
   workflow_dispatch:        # allow manual re-runs from the Actions tab
 
 jobs:
@@ -66,7 +66,7 @@ jobs:
         with:
           publish-features: "true"
           base-path-to-features: "./feature"
-          features-namespace: scottrigby/showtape
+          features-namespace: scottrigby/demotape
           # Skip the action's auto `feature_<id>_<version>` git tag — we
           # already tag the commit as `v<version>` in the next step, and
           # one canonical release tag is cleaner.

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Verify that every place that pins a showtape version agrees.
+# Verify that every place that pins a demotape version agrees.
 # Usage:
 #   scripts/check-version-sync.sh                # asserts all pins agree
 #   scripts/check-version-sync.sh 0.3.1          # asserts they all equal that value
 #
-# Files inspected: pyproject.toml, feature/showtape/devcontainer-feature.json,
+# Files inspected: pyproject.toml, feature/demotape/devcontainer-feature.json,
 # .devcontainer/devcontainer.json, README.md.
 set -euo pipefail
 
@@ -12,17 +12,17 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 EXPECTED="${1:-}"
 
 PY=$(grep -E '^version = ' "$ROOT/pyproject.toml" | head -1 | cut -d'"' -f2)
-FEAT=$(jq -r '.version' "$ROOT/feature/showtape/devcontainer-feature.json")
+FEAT=$(jq -r '.version' "$ROOT/feature/demotape/devcontainer-feature.json")
 
-OCI_DEV=$(grep -oE 'showtape/showtape:[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?' \
+OCI_DEV=$(grep -oE 'demotape/demotape:[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?' \
   "$ROOT/.devcontainer/devcontainer.json" | head -1 | cut -d: -f2 || true)
 
-OCI_README=$(grep -oE 'showtape/showtape:[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?' \
+OCI_README=$(grep -oE 'demotape/demotape:[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?' \
   "$ROOT/README.md" | head -1 | cut -d: -f2 || true)
 
 # Print the audit table
 printf "%-55s %s\n" "pyproject.toml [project].version"                   "$PY"
-printf "%-55s %s\n" "feature/showtape/devcontainer-feature.json version" "$FEAT"
+printf "%-55s %s\n" "feature/demotape/devcontainer-feature.json version" "$FEAT"
 printf "%-55s %s\n" ".devcontainer/devcontainer.json OCI ref"             "${OCI_DEV:-<absent>}"
 printf "%-55s %s\n" "README.md first OCI ref"                             "${OCI_README:-<absent>}"
 

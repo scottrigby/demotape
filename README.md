@@ -1,6 +1,6 @@
-# Showtape
+# Demotape
 
-A lightweight, open-source, in-container demo recorder. Define a step-by-step demo in YAML — multiple browser and terminal panes in a 1–4-pane grid, with TTS narration — and Showtape produces a single MP4. Built from open-source parts: Playwright (browser), VHS (terminal), Piper (TTS), FFmpeg (composition).
+A lightweight, open-source, in-container demo recorder. Define a step-by-step demo in YAML — multiple browser and terminal panes in a 1–4-pane grid, with TTS narration — and Demotape produces a single MP4. Built from open-source parts: Playwright (browser), VHS (terminal), Piper (TTS), FFmpeg (composition).
 
 ## Use it as a devcontainer feature
 
@@ -10,15 +10,15 @@ In any project's `.devcontainer/devcontainer.json`:
 {
   "image": "mcr.microsoft.com/devcontainers/base:debian",
   "features": {
-    "ghcr.io/scottrigby/showtape/showtape:0.9.0": {}
+    "ghcr.io/scottrigby/demotape/demotape:0.9.0": {}
   }
 }
 ```
 
-That installs everything (Playwright + Chromium, FFmpeg, VHS, ttyd, the `showtape` CLI, and a default Piper voice). Then in your project:
+That installs everything (Playwright + Chromium, FFmpeg, VHS, ttyd, the `demotape` CLI, and a default Piper voice). Then in your project:
 
 ```bash
-showtape render demos/feature-walkthrough.yaml
+demotape render demos/feature-walkthrough.yaml
 # → ./out/feature-walkthrough.mp4
 ```
 
@@ -26,22 +26,22 @@ Feature options (set in `devcontainer.json`):
 
 | Option | Default | Effect |
 |---|---|---|
-| `version` | `main` | Git ref of `scottrigby/showtape` to install — branch (`main`), tag (`v0.9.0`), or commit. Pin to a tag for reproducible builds. |
+| `version` | `main` | Git ref of `scottrigby/demotape` to install — branch (`main`), tag (`v0.9.0`), or commit. Pin to a tag for reproducible builds. |
 | `voiceModel` | `en_US-libritts_r-medium` | Piper voice to pre-fetch. Empty string disables. |
 | `installChromium` | `true` | Install Playwright's Chromium + system deps. Set false for terminal-only demos. |
 
 The feature `dependsOn` `python`, `ffmpeg-apt-get`, and `apt-packages` (with the right Chromium runtime libs already filled in), so you don't need to list those yourself.
 
-**Optional — persist large downloads across rebuilds.** The Chromium browser binary (~200 MB) and Piper voice models (~80 MB each) are version-stable, identical across consumers, and worth caching outside the build layer. Add named volumes to your devcontainer.json so they survive container rebuilds (and are shared across any other project on the same host that uses showtape):
+**Optional — persist large downloads across rebuilds.** The Chromium browser binary (~200 MB) and Piper voice models (~80 MB each) are version-stable, identical across consumers, and worth caching outside the build layer. Add named volumes to your devcontainer.json so they survive container rebuilds (and are shared across any other project on the same host that uses demotape):
 
 ```jsonc
 "mounts": [
-  "source=showtape-playwright,target=/usr/local/share/playwright,type=volume",
-  "source=showtape-voices,target=/usr/local/share/showtape/voices,type=volume"
+  "source=demotape-playwright,target=/usr/local/share/playwright,type=volume",
+  "source=demotape-voices,target=/usr/local/share/demotape/voices,type=volume"
 ]
 ```
 
-These are pure binary caches — nothing project-specific writes to either path. The smaller binaries (VHS, ttyd, the showtape Python package itself) are handled by Docker's image layer cache and don't need volumes.
+These are pure binary caches — nothing project-specific writes to either path. The smaller binaries (VHS, ttyd, the demotape Python package itself) are handled by Docker's image layer cache and don't need volumes.
 
 ## YAML schema
 
@@ -55,7 +55,7 @@ terminal_font_size: 18                 # optional — applies to all terminal pa
 pronunciations:                       # optional — applied to every step's narration
   Kubernetes: "kuber-NETT-eez"        # whole-word, case-insensitive substitution
   k8s: "kates"                        # respellings
-  showtape: "show tape"               # add a syllable break
+  demotape: "show tape"               # add a syllable break
   GitHub: "[[g'It_hVb]]"              # or espeak inline IPA when respelling falls short
 
 steps:
@@ -160,7 +160,7 @@ Buffers persist across steps within one render; a `capture:` in step 2 is availa
 
 **Voice model auto-detection.** If `voice_model:` is omitted and exactly one `.onnx` model is installed across all search paths, it is used automatically. For multi-speaker models (e.g. `en_US-libritts_r-medium` has 904 speakers), `speaker:` selects the speaker index (default 0). Single-speaker models ignore `speaker:`. Both fields are optional when only one model and one speaker exist.
 
-**Environment variable substitution.** YAML files are meant to be committed to git — credentials don't belong in them. Use `${VAR_NAME}` placeholders instead; showtape substitutes them at render time from the shell environment or a `.env` file next to the YAML:
+**Environment variable substitution.** YAML files are meant to be committed to git — credentials don't belong in them. Use `${VAR_NAME}` placeholders instead; demotape substitutes them at render time from the shell environment or a `.env` file next to the YAML:
 
 ```yaml
 # demos/signup-flow.yaml  ← safe to commit
@@ -183,16 +183,16 @@ Substitution applies to every string in the YAML — narration, action values, s
 ## CLI
 
 ```bash
-showtape render <yaml> [--out PATH] [--work-dir DIR] [--voice-model NAME] [--keep-work]
-showtape fetch-voice <name> [--dir voices/] [--force]
-showtape --version
+demotape render <yaml> [--out PATH] [--work-dir DIR] [--voice-model NAME] [--keep-work]
+demotape fetch-voice <name> [--dir voices/] [--force]
+demotape --version
 ```
 
-`render` defaults are cwd-relative: output to `./out/<stem>.mp4`, scratch in `./.showtape-work/`, voice model looked up under `./voices/`, then `/usr/local/share/showtape/voices/`, then `~/.cache/showtape/voices/`.
+`render` defaults are cwd-relative: output to `./out/<stem>.mp4`, scratch in `./.demotape-work/`, voice model looked up under `./voices/`, then `/usr/local/share/demotape/voices/`, then `~/.cache/demotape/voices/`.
 
 ## Contributing
 
-The repo eats its own dog food: opening it in a devcontainer-aware editor (VS Code Dev Containers extension, JetBrains Gateway, `devcontainer-cli`) builds a dev environment via the showtape feature itself, then `pip install -e .` overrides the from-git install with the live source.
+The repo eats its own dog food: opening it in a devcontainer-aware editor (VS Code Dev Containers extension, JetBrains Gateway, `devcontainer-cli`) builds a dev environment via the demotape feature itself, then `pip install -e .` overrides the from-git install with the live source.
 
 **If you open the repo via a generic devcontainer profile** (e.g. a claudeman profile that doesn't use the repo's own `.devcontainer/`) the editable install won't fire automatically. Run this once at the start of the session:
 
@@ -201,15 +201,15 @@ pip install --user -e . && export PATH="$HOME/.local/bin:$PATH"
 ```
 
 ```bash
-git clone https://github.com/scottrigby/showtape && cd showtape
+git clone https://github.com/scottrigby/demotape && cd demotape
 # In VS Code: "Reopen in Container" — or:
 devcontainer up --workspace-folder . --log-format json   # --log-format json avoids progress-bar terminal hijack
-devcontainer exec --workspace-folder . showtape render demos/example.yaml
+devcontainer exec --workspace-folder . demotape render demos/example.yaml
 ```
 
 ### Cutting a release
 
-The version is pinned in four places: `pyproject.toml`, `feature/showtape/devcontainer-feature.json`, the dev `.devcontainer/devcontainer.json`, and the README's example refs. `scripts/bump-version.sh` updates all four at once; `scripts/check-version-sync.sh` audits them. CI runs the same audit on every push to `main` and fails the release if anything is out of sync.
+The version is pinned in four places: `pyproject.toml`, `feature/demotape/devcontainer-feature.json`, the dev `.devcontainer/devcontainer.json`, and the README's example refs. `scripts/bump-version.sh` updates all four at once; `scripts/check-version-sync.sh` audits them. CI runs the same audit on every push to `main` and fails the release if anything is out of sync.
 
 ```bash
 ./scripts/bump-version.sh 0.3.0         # bumps + audits in one shot
@@ -219,9 +219,9 @@ git push origin main                    # CI tags v0.9.0 + publishes OCI feature
 ```
 
 What CI does on each push to `main` that touches `pyproject.toml` or the feature manifest:
-1. Asserts that `pyproject.toml` and `feature/showtape/devcontainer-feature.json` versions agree.
+1. Asserts that `pyproject.toml` and `feature/demotape/devcontainer-feature.json` versions agree.
 2. If a `v<version>` tag doesn't already exist, creates it on that commit and pushes.
-3. Publishes the OCI feature to `ghcr.io/scottrigby/showtape/showtape:<version>` (plus floating `:0.x`, `:0`, `:latest`).
+3. Publishes the OCI feature to `ghcr.io/scottrigby/demotape/demotape:<version>` (plus floating `:0.x`, `:0`, `:latest`).
 
 The git tag is the canonical release marker — there's no GitHub Release yet (deliberately, while the project is in 0.x and changing fast). When a release warrants written notes, add a `softprops/action-gh-release` step to the workflow.
 

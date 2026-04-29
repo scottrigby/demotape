@@ -2,9 +2,9 @@ title: env-vars-demo
 resolution: { w: 1920, h: 1080 }
 speaker: 0
 
-# How environment variable substitution works in showtape:
+# How environment variable substitution works in demotape:
 #
-#   ${VAR_NAME}          required — showtape errors with a clear message if unset
+#   ${VAR_NAME}          required — demotape errors with a clear message if unset
 #   ${VAR_NAME:-default} optional — uses the default value if VAR_NAME is not set
 #
 # Substitution applies to every string in the YAML — narration, action values,
@@ -14,7 +14,7 @@ speaker: 0
 # committed YAML so credentials never land in git.
 
 pronunciations:
-  showtape: "show tape"
+  demotape: "demo tape"
   dot-env: "dot en-vee"   # .env files: prevent "dot ten" mispronunciation
 
 steps:

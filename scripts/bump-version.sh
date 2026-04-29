@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# Bump showtape's version in every place that pins it. Keeps the
+# Bump demotape's version in every place that pins it. Keeps the
 # tracked artifacts (pyproject.toml + feature manifest, the two CI
 # compares) in lockstep with documentation and the dev devcontainer.
 #
 # Updates:
 #   - pyproject.toml                                  [project].version
-#   - feature/showtape/devcontainer-feature.json      "version"
+#   - feature/demotape/devcontainer-feature.json      "version"
 #   - .devcontainer/devcontainer.json                 OCI feature ref tag
 #   - README.md                                       OCI feature ref tag + `vX.Y.Z` examples
 #
-# Not touched: src/showtape/__init__.py reads via importlib.metadata.
+# Not touched: src/demotape/__init__.py reads via importlib.metadata.
 #
 # Usage:  scripts/bump-version.sh 0.3.1
 set -euo pipefail
@@ -43,17 +43,17 @@ p.write_text(text)
 print(f"  {p.relative_to(root)} → version = \"{new}\"")
 
 # 2. devcontainer-feature.json — top-level "version"
-p = root / "feature/showtape/devcontainer-feature.json"
+p = root / "feature/demotape/devcontainer-feature.json"
 data = json.loads(p.read_text())
 data["version"] = new
 p.write_text(json.dumps(data, indent=2) + "\n")
 print(f"  {p.relative_to(root)} → \"version\": \"{new}\"")
 
 # 3. .devcontainer/devcontainer.json — OCI tag in feature ref
-oci_re = re.compile(r"ghcr\.io/scottrigby/showtape/showtape:\d+\.\d+\.\d+(?:-[\w.-]+)?")
+oci_re = re.compile(r"ghcr\.io/scottrigby/demotape/demotape:\d+\.\d+\.\d+(?:-[\w.-]+)?")
 p = root / ".devcontainer/devcontainer.json"
 text = p.read_text()
-new_text, n = oci_re.subn(f"ghcr.io/scottrigby/showtape/showtape:{new}", text)
+new_text, n = oci_re.subn(f"ghcr.io/scottrigby/demotape/demotape:{new}", text)
 if n:
     p.write_text(new_text)
     print(f"  {p.relative_to(root)} → :{new} ({n} ref{'s' if n > 1 else ''})")
@@ -61,7 +61,7 @@ if n:
 # 4. README.md — OCI tag in feature ref AND git tag examples (vX.Y.Z)
 p = root / "README.md"
 text = p.read_text()
-new_text, n_oci = oci_re.subn(f"ghcr.io/scottrigby/showtape/showtape:{new}", text)
+new_text, n_oci = oci_re.subn(f"ghcr.io/scottrigby/demotape/demotape:{new}", text)
 new_text, n_tag = re.subn(r"v\d+\.\d+\.\d+(?:-[\w.-]+)?", f"v{new}", new_text)
 if n_oci or n_tag:
     p.write_text(new_text)
