@@ -10,7 +10,7 @@ In any project's `.devcontainer/devcontainer.json`:
 {
   "image": "mcr.microsoft.com/devcontainers/base:debian",
   "features": {
-    "ghcr.io/scottrigby/demotape/demotape:0.9.1": {}
+    "ghcr.io/scottrigby/demotape/demotape:0.9.2": {}
   }
 }
 ```
@@ -26,7 +26,7 @@ Feature options (set in `devcontainer.json`):
 
 | Option | Default | Effect |
 |---|---|---|
-| `version` | `main` | Git ref of `scottrigby/demotape` to install — branch (`main`), tag (`v0.9.1`), or commit. Pin to a tag for reproducible builds. |
+| `version` | `main` | Git ref of `scottrigby/demotape` to install — branch (`main`), tag (`v0.9.2`), or commit. Pin to a tag for reproducible builds. |
 | `voiceModel` | `en_US-libritts_r-medium` | Piper voice to pre-fetch. Empty string disables. |
 | `installChromium` | `true` | Install Playwright's Chromium + system deps. Set false for terminal-only demos. |
 
@@ -82,7 +82,7 @@ steps:
           - paste: |                                # near-instant, multi-line
               helm upgrade --install my-app chart/ \
                 -n staging \
-                --set image.tag=v0.9.1
+                --set image.tag=v0.9.2
               kubectl -n staging get pods
           - sleep_ms: 60000                         # let the actual command run
 ```
@@ -100,7 +100,7 @@ Step duration = `max(narration, all action estimates) + end_buffer_ms`. Each pan
 
 `sleep_ms:` in terminal actions is for **mid-action pauses** only (e.g., waiting for a command to finish before typing the next one). A trailing `sleep_ms:` at the end of an actions list is redundant — the step's remaining time already pads every pane to `step_ms`. Use `end_buffer_ms:` on the step instead to extend viewing time after all actions complete.
 
-**Browser sessions** keep the full Playwright browser context alive across every step that uses the same `session:` id — the page, its URL, scroll position, sessionStorage, JS timers, and any in-flight form state are all preserved. A step that omits a session pane entirely leaves it untouched; when it reappears in a later step (with or without a `goto:`) it is exactly where it was left. This makes multi-tab flows possible: one session holds a signup form waiting at the verification-code field while a second session visits a Gmail inbox, captures the code, and hands it back via `paste_from:`. Browser sessions that do not declare `session:` use a fresh context per step (same as before v0.9.1). See `demos/browser-session.yaml` for an object-permanence walkthrough.
+**Browser sessions** keep the full Playwright browser context alive across every step that uses the same `session:` id — the page, its URL, scroll position, sessionStorage, JS timers, and any in-flight form state are all preserved. A step that omits a session pane entirely leaves it untouched; when it reappears in a later step (with or without a `goto:`) it is exactly where it was left. This makes multi-tab flows possible: one session holds a signup form waiting at the verification-code field while a second session visits a Gmail inbox, captures the code, and hands it back via `paste_from:`. Browser sessions that do not declare `session:` use a fresh context per step (same as before v0.9.2). See `demos/browser-session.yaml` for an object-permanence walkthrough.
 
 **Terminal sessions** preserve scrollback across steps. A terminal pane with `session: <id>` shares one shell with every other pane using the same id, so commands run in step 1 are still on screen when the session reappears in step 5 — even if intervening steps don't include the terminal at all. Each step attaches a fresh VHS client to a persistent tmux session, records exactly that step's duration, and exits — no slicing or offset math. Sessions can appear at different viewport sizes across steps (e.g., split-screen then full-screen); commands execute exactly once, making sessions safe for write-ops (`helm upgrade`, `kubectl apply`, `git push`). See `demos/terminal-sessions.yaml` for a worked example.
 
@@ -221,8 +221,8 @@ The version is pinned in four places: `pyproject.toml`, `feature/demotape/devcon
 ```bash
 ./scripts/bump-version.sh 0.3.0         # bumps + audits in one shot
 git diff                                # sanity-check
-git commit -am "Bump to v0.9.1"
-git push origin main                    # CI tags v0.9.1 + publishes OCI feature
+git commit -am "Bump to v0.9.2"
+git push origin main                    # CI tags v0.9.2 + publishes OCI feature
 ```
 
 What CI does on each push to `main` that touches `pyproject.toml` or the feature manifest:
