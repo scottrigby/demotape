@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "demotape"
-version = "0.9.2"
+version = "0.9.3"
 description = "Multi-pane in-container demo recorder: declarative YAML → narrated MP4"
 readme = "README.md"
 requires-python = ">=3.10"
