@@ -178,6 +178,13 @@ The `.env` file must be a sibling of the YAML being rendered (same directory). `
 
 Substitution applies to every string in the YAML — narration, action values, selectors, URLs. See `demos/env-vars.yaml` and the annotated `demos/.env` for a worked example.
 
+**Browser action failures abort the render by default.** A failed `fill:`, `click:`, or `wait_for:` raises a clear error identifying the step, session, and action — no silent partial renders. Use `optional: true` on individual actions that may legitimately be absent (e.g. cookie banners, dismissible modals):
+
+```yaml
+- click: "text=Accept cookies"
+  optional: true   # silently skipped if the element isn't found
+```
+
 **Stick to ASCII in `type:`/`paste:` action strings.** Smart quotes, em dashes (`—`), and other Unicode punctuation are sent through VHS → ttyd → bash readline as multi-byte UTF-8 sequences, and at least some byte values get interpreted by readline as command-line edit operations (transposing words, killing the line, etc.). Use plain `-` instead of `—`, plain `'`/`"` instead of curly quotes. Narration text (which goes through Piper, not the shell) is fine with any Unicode.
 
 ## CLI

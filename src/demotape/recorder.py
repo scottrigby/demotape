@@ -348,6 +348,33 @@ def _stop_playwright():
         _playwright = None
 
 
+def _run_browser_action_safe(page, action, context: str):
+    """Run a browser action, raising a clear error on failure unless optional: true.
+
+    context: human-readable string for the error message (step/pane label).
+    """
+    if not isinstance(action, dict):
+        return
+    optional = action.get("optional", False)
+    # Build a single-key action dict for run_browser_action (strip 'optional' key)
+    core = {k: v for k, v in action.items() if k != "optional"}
+    if not core:
+        return
+    try:
+        run_browser_action(page, core)
+    except Exception as e:
+        if optional:
+            print(f"  (optional action skipped: {next(iter(core))!r} — {e})",
+                  file=sys.stderr)
+        else:
+            raise RuntimeError(
+                f"Browser action failed in {context}: {core!r}\n"
+                f"  {type(e).__name__}: {e}\n"
+                f"  Hint: add  optional: true  to skip this action on failure, "
+                f"or use a record: false step to set up session state before recording."
+            ) from e
+
+
 def run_browser_action(page, action):
     if not isinstance(action, dict) or len(action) != 1:
         raise ValueError(f"browser action must be a single-key mapping: {action!r}")
@@ -430,13 +457,11 @@ def _run_browser_session(pane, dims, target_ms=None, record=True, video_dir=None
             scroll_restored = True
 
     start = time.monotonic()
-    try:
-        for action in actions:
-            run_browser_action(page, action)
-            if "goto" in action:
-                maybe_restore_scroll()
-    except Exception as e:
-        print(f"  ! browser action error: {e}", file=sys.stderr)
+    session_label = f"session={session}"
+    for action in actions:
+        _run_browser_action_safe(page, action, session_label)
+        if isinstance(action, dict) and "goto" in action:
+            maybe_restore_scroll()
 
     if record and target_ms is not None:
         elapsed_ms = int((time.monotonic() - start) * 1000)
@@ -487,11 +512,9 @@ def _record_live_browser_pane(pane, target_ms, dims, video_dir, warmup_ms=0):
     # Per-action: run then capture a short post-action burst so transitions
     # (scroll, navigation result, form fills) are visible in the recording.
     POST_ACTION_MS = 300   # frames to capture after each action settles
+    session_label = f"session={pane['session']}"
     for action in actions:
-        try:
-            run_browser_action(page, action)
-        except Exception as e:
-            print(f"  ! browser action error: {e}", file=sys.stderr)
+        _run_browser_action_safe(page, action, session_label)
         _capture_frames(page, frames, POST_ACTION_MS)
 
     # Fill remaining step duration with frames of the final page state.
@@ -532,11 +555,9 @@ def advance_browser_pane(pane, dims):
         info = _live_browsers[pane["session"]]
         page = info["page"]
         page.set_viewport_size({"width": dims[0], "height": dims[1]})
-        try:
-            for action in pane.get("actions") or []:
-                run_browser_action(page, action)
-        except Exception as e:
-            print(f"  ! browser action error: {e}", file=sys.stderr)
+        session_label = f"session={pane['session']} (record: false)"
+        for action in pane.get("actions") or []:
+            _run_browser_action_safe(page, action, session_label)
     else:
         _run_browser_session(pane, dims, record=False)
 
