@@ -380,7 +380,12 @@ def run_browser_action(page, action):
         raise ValueError(f"browser action must be a single-key mapping: {action!r}")
     key, val = next(iter(action.items()))
     if key == "goto":
-        page.goto(val, wait_until="domcontentloaded", timeout=20000)
+        # val may be a plain URL string or { url: "...", timeout_ms: N }
+        if isinstance(val, dict):
+            page.goto(val["url"], wait_until="domcontentloaded",
+                      timeout=val.get("timeout_ms", 20000))
+        else:
+            page.goto(val, wait_until="domcontentloaded", timeout=20000)
     elif key == "capture":
         # Extract text from a DOM element or JS expression into a named buffer.
         # val: { selector: "css", to: "name" }  — innerText of matching element
@@ -393,12 +398,13 @@ def run_browser_action(page, action):
             _session_buffers[buf] = el.inner_text().strip() if el else ""
     elif key == "fill":
         selector = val["selector"]
-        # Support paste_from: to fill from a cross-pane buffer.
         value = _session_buffers.get(val["paste_from"]) if "paste_from" in val else val["value"]
-        page.fill(selector, value or "", timeout=10000)
+        page.fill(selector, value or "", timeout=val.get("timeout_ms", 10000))
     elif key == "click":
-        sel = val if isinstance(val, str) else val["selector"]
-        page.click(sel, timeout=10000)
+        if isinstance(val, str):
+            page.click(val, timeout=10000)
+        else:
+            page.click(val["selector"], timeout=val.get("timeout_ms", 10000))
     elif key == "wait_for":
         if isinstance(val, str):
             page.wait_for_selector(val, timeout=20000)
