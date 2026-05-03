@@ -1,0 +1,37 @@
+title: fail-fast-demo
+resolution: { w: 1920, h: 1080 }
+speaker: 0
+
+# This demo is DESIGNED TO FAIL. It demonstrates demotape's fail-fast
+# behaviour when a browser action cannot complete.
+#
+# Run it to see the error format:
+#   demotape render demos/fail-fast.yaml
+#
+# Expected output (no MP4 is produced):
+#   RuntimeError: Browser action failed in session=web: {'click': 'text=...'}
+#     TimeoutError: ...
+#     Hint: add  optional: true  to skip this action on failure, or use a
+#     record: false step to set up session state before recording.
+#
+# To suppress a non-critical failure instead of aborting, add optional: true:
+#   - click: "text=Accept cookies"
+#     optional: true
+
+steps:
+  - id: succeeds
+    narration: "This step succeeds."
+    end_buffer_ms: 1000
+    panes:
+      - type: browser
+        session: web
+        actions:
+          - goto: "https://example.com"
+
+  - id: fails
+    narration: "This step fails — the element does not exist on the page."
+    panes:
+      - type: browser
+        session: web
+        actions:
+          - click: "text=THIS_ELEMENT_DOES_NOT_EXIST_12345"
